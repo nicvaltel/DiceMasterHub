@@ -25,12 +25,12 @@ source-repository head
 
 library
   exposed-modules:
+      GamesList
       Pentest.GameMoveProcessor
       Pentest.RunGames
       Pentest.RunGames1
       Pentest.TreadsProcessor0
       Pentest.TreadsProcessor1
-      Pentest.Websocket.GamesList
       Pentest.Websocket.Server
       Pentest.Websocket.ServerSimple
       RunWebSocketServerMVar
