@@ -29,6 +29,7 @@ dependencies:
 - async
 - stm
 - hashable
+- websockets
 # - record-dot-preprocessor
 # - aeson
 
