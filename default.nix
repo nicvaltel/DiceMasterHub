@@ -25,6 +25,9 @@ in
       pkgs.haskellPackages.record-dot-preprocessor
       pkgs.zlib
 
+      pkgs.go
+      pkgs.gopls # Official language server for the Go language
+      pkgs.websocat # Websocat is a command-line utility that can help you test WebSocket connections
     ];
 
 }

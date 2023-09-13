@@ -1,3 +1,11 @@
 back-end/dist-newstyle/
 back-end/.stack-work/
+back-end/out/
+back-end/src/Pentest/
+back-end/run_deploy.sh
+
+gowebsocket/
+
+front-end/assets/run_deploy.sh
+
 *~

@@ -1,0 +1,38 @@
+/* Center the content vertically and horizontally */
+/* body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+} */
+
+
+.lobby-container {
+    width: 100%; /* Set the width of the container to 100% */
+    display: flex; /* Use flexbox to arrange child divs horizontally */
+}
+
+.child {
+    flex: 1; /* Each child div takes up an equal amount of space */
+    padding: 10px; /* Optional padding for spacing between child divs */
+    border: 1px solid #000; /* Optional border for visual separation */
+}
+
+.table-box {
+    width: 35%;
+}
+
+/* .table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table, .table th, .table td {
+    border: 1px solid #ccc;
+    padding: 8px;
+    text-align: left;
+}
+
+.table th {
+    background-color: #f2f2f2;
+} */
