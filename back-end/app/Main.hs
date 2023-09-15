@@ -5,11 +5,10 @@ module Main (main) where
 -- import qualified Websocket.Server
 -- import qualified Websocket.ServerSimple
 -- import qualified Websocket.GamesList
-import qualified Server.RunWebSocketServer as RunWebSocketServer
+import qualified Server.WebSocketServer as WebSocketServer
 import Configuration.Dotenv (parseFile)
 import Data.Maybe (fromJust)
 import Text.Printf (printf)
-import qualified Data.Text as Text
 -- import Text.Printf (printf)
 
 main :: IO ()
@@ -32,4 +31,4 @@ main = do
     let host = fromJust $ lookup "HOST" cfg
     let port = read . fromJust $ lookup "PORT" cfg
     putStrLn $ (printf "Listening at: %s:%d" host port :: String)
-    RunWebSocketServer.runWebSocketServerTMVar host port 
+    WebSocketServer.runWebSocketServerTMVar host port 

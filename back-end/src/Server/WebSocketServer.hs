@@ -1,50 +1,37 @@
 -- websocat -v ws://127.0.0.1:1234
-
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Server.RunWebSocketServer (runWebSocketServerMVar, runWebSocketServerTMVar) where
+module Server.WebSocketServer (runWebSocketServerMVar, runWebSocketServerTMVar) where
 
 import Control.Concurrent (MVar, modifyMVarMasked, modifyMVarMasked_, newMVar)
 import Control.Concurrent.STM
   ( TMVar,
-    TQueue,
     atomically,
     newTMVarIO,
-    newTQueueIO,
     putTMVar,
     takeTMVar,
-    writeTQueue,
   )
 import Control.Exception (finally)
 import Control.Monad (forever)
--- import Network.WebSockets (Connection)
-
 import Control.Monad.RWS (RWST (runRWST))
-import Control.Monad.Reader (MonadIO (liftIO), MonadReader (ask), ReaderT)
-import Data.IntMap (IntMap)
-import qualified Data.IntMap.Strict as IntMap
+import Control.Monad.Reader (MonadIO (liftIO), MonadReader (ask))
 import Data.Kind (Type)
-import Data.Text (Text)
 import qualified Data.Text as Text
-import GameRoom.GameRoom (GameRoomsRepo (..), RoomId, RoomsMap)
-import IntMapRepo (IntMapRepo)
+import GameRoom.GameRoom (GameRoomsRepo (..), RoomsMap)
 import qualified IntMapRepo
-import Utils.Logger (LgSeverity (LgInfo, LgMessage), logger)
 import qualified Network.WebSockets as WS
-import Server.Messages
-import GameLogic.GameLogic (GameType(..))
 import Server.MessageProcessor
+import Server.Messages
 import Server.Types
 import Users.User (UserId)
-
-
+import Utils.Logger (LgSeverity (LgInfo), logger)
 
 class (GameRoomsRepo mvar) => WebSocketServer (mvar :: Type -> Type) where
-  addConnection :: mvar WebSocketServerState -> WS.Connection -> TQueue WSMsgFormat -> IO ConnectionId
+  addConnection :: mvar WebSocketServerState -> WS.Connection -> IO ConnectionId
   removeConnection :: mvar WebSocketServerState -> ConnectionId -> IO ()
   newContainerVar :: a -> IO (mvar a)
 
@@ -59,8 +46,7 @@ class (GameRoomsRepo mvar) => WebSocketServer (mvar :: Type -> Type) where
   webSocketServer gameRoomsMap wSState = \pending -> do
     conn <- WS.acceptRequest pending
     checkForExistingUser conn -- TODO check for user
-    connStateMessageQueue <- newTQueueIO :: IO (TQueue WSMsgFormat)
-    idConn <- addConnection wSState conn connStateMessageQueue
+    idConn <- addConnection wSState conn
     logger LgInfo $ show idConn ++ " connected"
     WS.withPingThread conn 30 (pure ()) $ do
       finally
@@ -74,27 +60,25 @@ class (GameRoomsRepo mvar) => WebSocketServer (mvar :: Type -> Type) where
 newWebSocketServerState :: WebSocketServerState
 newWebSocketServerState = undefined
 
--- addConnToState :: WS.Connection -> TQueue WSMsgFormat -> WebSocketServerState -> (WebSocketServerState, ConnectionId)
--- addConnToState conn connStateMessageQueue wssState =
---   let repo = wsConnectionRepo wssState
---       connState = ConnectionState {connStateConnection = conn, connStateMessageQueue}
---       (newRepo, idConn) = IntMapRepo.append connState repo
---    in (WebSocketServerState {wsConnectionRepo = newRepo}, idConn)
+addConnToState :: WS.Connection -> WebSocketServerState -> (WebSocketServerState, ConnectionId)
+addConnToState conn WebSocketServerState {wsConnectionRepo} =
+  let connState = ConnectionState {connStateConnection = conn, connStateUserId = Nothing}
+      (newRepo, idConn) = IntMapRepo.append connState wsConnectionRepo
+   in (WebSocketServerState {wsConnectionRepo = newRepo}, idConn)
 
--- removeConnFromState :: ConnectionId -> WebSocketServerState -> WebSocketServerState
--- removeConnFromState idConn wssState =
---   let repo = wsConnectionRepo wssState
---       newRepo = IntMapRepo.delete idConn repo
---    in WebSocketServerState {wsConnectionRepo = newRepo}
+removeConnFromState :: ConnectionId -> WebSocketServerState -> WebSocketServerState
+removeConnFromState idConn WebSocketServerState {wsConnectionRepo} =
+  let newRepo = IntMapRepo.delete idConn wsConnectionRepo
+   in WebSocketServerState {wsConnectionRepo = newRepo}
 
 checkForExistingUser :: WS.Connection -> IO ()
 checkForExistingUser _ = pure ()
 
 instance WebSocketServer TMVar where
-  addConnection :: TMVar WebSocketServerState -> WS.Connection -> TQueue WSMsgFormat -> IO ConnectionId
-  addConnection tmvWSState conn connStateMessageQueue = atomically $ do
+  addConnection :: TMVar WebSocketServerState -> WS.Connection -> IO ConnectionId
+  addConnection tmvWSState conn = atomically $ do
     wssState <- takeTMVar tmvWSState
-    let (newWssState, idConn) = addConnToState conn connStateMessageQueue wssState
+    let (newWssState, idConn) = addConnToState conn wssState
     putTMVar tmvWSState newWssState
     pure idConn
 
@@ -108,8 +92,8 @@ instance WebSocketServer TMVar where
   newContainerVar = newTMVarIO
 
 instance WebSocketServer MVar where
-  addConnection :: MVar WebSocketServerState -> WS.Connection -> TQueue WSMsgFormat -> IO ConnectionId
-  addConnection mvWSState conn connStateMessageQueue = modifyMVarMasked mvWSState (pure . addConnToState conn connStateMessageQueue)
+  addConnection :: MVar WebSocketServerState -> WS.Connection -> IO ConnectionId
+  addConnection mvWSState conn = modifyMVarMasked mvWSState (pure . addConnToState conn)
 
   removeConnection :: MVar WebSocketServerState -> ConnectionId -> IO ()
   removeConnection mvWSState idConn = modifyMVarMasked_ mvWSState (pure . removeConnFromState idConn)
@@ -117,7 +101,7 @@ instance WebSocketServer MVar where
   newContainerVar :: a -> IO (MVar a)
   newContainerVar = newMVar
 
-wsThreadMessageListner :: (GameRoomsRepo mvar) =>ConnectionId -> ConnThread mvar ()
+wsThreadMessageListner :: (GameRoomsRepo mvar) => ConnectionId -> ConnThread mvar ()
 wsThreadMessageListner idConn = forever $ do
   ConnThreadReader conn _ <- ask
   (msg :: WSMsgFormat) <- liftIO $ WS.receiveData conn
@@ -132,7 +116,6 @@ wsThreadMessageListner idConn = forever $ do
 
 userIdFromConnectionId :: ConnectionId -> IO UserId
 userIdFromConnectionId = undefined -- TODO implement
-
 
 runWebSocketServerMVar :: String -> Int -> IO ()
 runWebSocketServerMVar host port = (runWebSocketServer host port :: IO (MVar WebSocketServerState)) >> pure ()

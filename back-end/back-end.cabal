@@ -37,8 +37,8 @@ library
       Server.GamesList
       Server.MessageProcessor
       Server.Messages
-      Server.RunWebSocketServer
       Server.Types
+      Server.WebSocketServer
       Types
       Users.User
       Utils.Logger

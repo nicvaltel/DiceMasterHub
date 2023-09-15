@@ -1,11 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Server.Messages where
 
+module Server.Messages where
 
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GameRoom.GameRoom
-import Types(Timestamp)
 
 type WSMsgFormat = Text
 
@@ -17,10 +16,10 @@ data InitJoinRoom = InitGameRoom [WSMsgFormat] | JoinGameRoom WSMsgFormat
 
 data GameAction = GameAction [WSMsgFormat]
 
-data WebSocketOutputMessage = 
-  ResendIncorrectMsg | 
-  GameRoomCreatedMsg RoomId | 
-  GameRoomIsAlreadyActiveMsg RoomId -- unable to create new gameroom before closing the old one
+data WebSocketOutputMessage
+  = ResendIncorrectMsg
+  | GameRoomCreatedMsg RoomId
+  | GameRoomIsAlreadyActiveMsg RoomId -- unable to create new gameroom before closing the old one
 
 class WebSocketMSG a where
   toWebSocketInputMessage :: a -> WebSocketInputMessage
@@ -39,7 +38,7 @@ instance WebSocketMSG Text where
           ["Join", roomId] -> InitJoinRoomMsg (JoinGameRoom roomId)
           ("GameAct" : params) -> GameActionMsg (GameAction params)
           _ -> IncorrectMsg txts
-  
+
   fromWebSocketOutputMessage ResendIncorrectMsg = "Resend\n"
   fromWebSocketOutputMessage (GameRoomCreatedMsg roomId) = "RoomWaitingForParticipant\n" <> Text.pack (show roomId) <> "\n"
   fromWebSocketOutputMessage (GameRoomIsAlreadyActiveMsg roomId) = "RoomWaitingForParticipant\n" <> Text.pack (show roomId) <> "\n"
