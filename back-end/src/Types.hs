@@ -4,6 +4,7 @@ module Types where
 
 import Data.Text (Text)
 import qualified Data.Text as Text
+import qualified GHC.Show as Text
 
 data Timestamp
 
@@ -19,7 +20,7 @@ data InitJoinRoom = InitGameRoom [WSMsgFormat] | JoinGameRoom WSMsgFormat
 
 data GameAction = GameAction [WSMsgFormat]
 
-data WebSocketOutputMessage = ResendIncorrectMsg | RoomWaitingForParticipantMsg
+data WebSocketOutputMessage = ResendIncorrectMsg | GameRoomCreatedMsg Int
 
 class WebSocketMSG a where
   toWebSocketInputMessage :: a -> WebSocketInputMessage
@@ -40,4 +41,4 @@ instance WebSocketMSG Text where
           _ -> IncorrectMsg txts
   
   fromWebSocketOutputMessage ResendIncorrectMsg = "Resend\n"
-  fromWebSocketOutputMessage RoomWaitingForParticipantMsg = "RoomWaitingForParticipant\n"
+  fromWebSocketOutputMessage (GameRoomCreatedMsg roomId) = "RoomWaitingForParticipant\n" <> Text.pack (show roomId) <> "\n"

@@ -8,6 +8,9 @@ module Main (main) where
 import qualified RunWebSocketServer
 import Configuration.Dotenv (parseFile)
 import Data.Maybe (fromJust)
+import Text.Printf (printf)
+import qualified Data.Text as Text
+-- import Text.Printf (printf)
 
 main :: IO ()
 main = do 
@@ -26,4 +29,7 @@ main = do
     --         Websocket.GamesList.main address portNum
 
     cfg <- parseFile "config.env"
-    RunWebSocketServer.runWebSocketServerTMVar (fromJust $ lookup "HOST" cfg) (read . fromJust $ lookup "PORT" cfg)
+    let host = fromJust $ lookup "HOST" cfg
+    let port = read . fromJust $ lookup "PORT" cfg
+    putStrLn $ (printf "Listening at: %s:%d" host port :: String)
+    RunWebSocketServer.runWebSocketServerTMVar host port 

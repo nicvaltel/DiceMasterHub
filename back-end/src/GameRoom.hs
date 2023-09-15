@@ -8,6 +8,7 @@ import Game
 import User
 import Control.Concurrent.STM (TMVar, newTMVarIO, atomically, putTMVar, takeTMVar)
 import Control.Monad.Reader (ReaderT, MonadReader (ask), MonadIO (liftIO))
+import Control.Concurrent (MVar, newMVar, modifyMVarMasked)
 
 -- type Key = Int
 
@@ -19,11 +20,11 @@ data GameRoomMessage
 
 type RoomsMap = IntMapRepo GameRoom
 
-type GameRoomRepoApp mvar a = ReaderT (mvar RoomsMap) IO a
+-- type GameRoomRepoApp mvar a = ReaderT (mvar RoomsMap) IO a
 
 class GameRoomsRepo mvar where
     createGameRoomsRepo :: IO (mvar RoomsMap)
-    createGameRoom :: UserId -> GameType -> GameRoomRepoApp mvar RoomId
+    createGameRoom :: UserId -> GameType -> mvar RoomsMap -> IO RoomId
 
 type GameRoomId = Int
 
@@ -53,15 +54,26 @@ instance GameRoomsRepo TMVar where
     createGameRoomsRepo :: IO (TMVar RoomsMap)
     createGameRoomsRepo = newTMVarIO IntMapRepo.empty
 
-    createGameRoom :: UserId -> GameType -> ReaderT (TMVar RoomsMap) IO GameRoomId
-    createGameRoom userId gameType = do 
+    createGameRoom :: UserId -> GameType -> TMVar RoomsMap -> IO GameRoomId
+    createGameRoom userId gameType mvRepo = do 
         let newRoom = newGameRoom userId gameType (newGameBoardState gameType) 
-        mvRepo <- ask
         roomId <- liftIO $ atomically $ do
             repo <- takeTMVar mvRepo
             let (newRepo, roomId) = IntMapRepo.append newRoom repo
             putTMVar mvRepo newRepo
             pure roomId
+        pure roomId
+
+instance GameRoomsRepo MVar where
+    createGameRoomsRepo :: IO (MVar RoomsMap)
+    createGameRoomsRepo = newMVar IntMapRepo.empty
+
+    createGameRoom :: UserId -> GameType -> MVar RoomsMap -> IO GameRoomId
+    createGameRoom userId gameType mvRepo = do 
+        let newRoom = newGameRoom userId gameType (newGameBoardState gameType) 
+        roomId <- liftIO $ modifyMVarMasked mvRepo $ \repo -> 
+            let (newRepo, roomId) = IntMapRepo.append newRoom repo
+            in pure (newRepo, roomId)
         pure roomId
 
         

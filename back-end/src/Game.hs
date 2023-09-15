@@ -7,7 +7,7 @@ data GameBoardState
 
 data GameResult
 
-data GameType
+data GameType = GameType
 
 newGameBoardState :: GameType -> GameBoardState
 newGameBoardState gameType = undefined
