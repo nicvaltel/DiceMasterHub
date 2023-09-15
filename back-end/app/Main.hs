@@ -1,11 +1,13 @@
 module Main (main) where
 
-import System.Environment (getArgs)
+-- import System.Environment (getArgs)
 -- import qualified TreadsProcessor1
 -- import qualified Websocket.Server
 -- import qualified Websocket.ServerSimple
 -- import qualified Websocket.GamesList
-import qualified RunWebSocketServerTMVar
+import qualified RunWebSocketServer
+import Configuration.Dotenv (parseFile)
+import Data.Maybe (fromJust)
 
 main :: IO ()
 main = do 
@@ -23,4 +25,5 @@ main = do
     --         let portNum = read (args !! 1) :: Int
     --         Websocket.GamesList.main address portNum
 
-    RunWebSocketServerTMVar.main
+    cfg <- parseFile "config.env"
+    RunWebSocketServer.runWebSocketServerTMVar (fromJust $ lookup "HOST" cfg) (read . fromJust $ lookup "PORT" cfg)

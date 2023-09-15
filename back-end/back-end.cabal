@@ -25,17 +25,20 @@ source-repository head
 
 library
   exposed-modules:
+      Game
+      GameRoom
       GamesList
+      IntMapRepo
+      Logger
       Pentest.GameMoveProcessor
-      Pentest.RunGames
       Pentest.RunGames1
       Pentest.TreadsProcessor0
       Pentest.TreadsProcessor1
       Pentest.Websocket.Server
       Pentest.Websocket.ServerSimple
-      RunWebSocketServerMVar
-      RunWebSocketServerTMVar
+      RunWebSocketServer
       Types
+      User
   other-modules:
       Paths_back_end
   hs-source-dirs:
@@ -46,6 +49,7 @@ library
     , base >=4.7 && <5
     , bytestring
     , containers
+    , dotenv
     , hashable
     , mtl
     , random
@@ -67,6 +71,7 @@ executable back-end-exe
     , base >=4.7 && <5
     , bytestring
     , containers
+    , dotenv
     , hashable
     , mtl
     , random
@@ -89,6 +94,7 @@ test-suite back-end-test
     , base >=4.7 && <5
     , bytestring
     , containers
+    , dotenv
     , hashable
     , mtl
     , random

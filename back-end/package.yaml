@@ -30,6 +30,7 @@ dependencies:
 - stm
 - hashable
 - websockets
+- dotenv
 # - record-dot-preprocessor
 # - aeson
 

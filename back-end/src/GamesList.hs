@@ -4,7 +4,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
-module Websocket.GamesList where
+module GamesList where
 
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async (async)

@@ -7,5 +7,6 @@ back-end/run_deploy.sh
 gowebsocket/
 
 front-end/assets/run_deploy.sh
+*.env
 
 *~

@@ -3,4 +3,5 @@ dist-newstyle/
 out/
 src/Pentest/
 run_deploy.sh
+*.env
 *~
