@@ -25,20 +25,23 @@ source-repository head
 
 library
   exposed-modules:
-      Game
-      GameRoom
-      GamesList
+      GameLogic.GameLogic
+      GameRoom.GameRoom
       IntMapRepo
-      Logger
       Pentest.GameMoveProcessor
       Pentest.RunGames1
       Pentest.TreadsProcessor0
       Pentest.TreadsProcessor1
       Pentest.Websocket.Server
       Pentest.Websocket.ServerSimple
-      RunWebSocketServer
+      Server.GamesList
+      Server.MessageProcessor
+      Server.Messages
+      Server.RunWebSocketServer
+      Server.Types
       Types
-      User
+      Users.User
+      Utils.Logger
   other-modules:
       Paths_back_end
   hs-source-dirs:

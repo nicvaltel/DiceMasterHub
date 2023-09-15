@@ -4,7 +4,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
-module GamesList where
+module Server.GamesList where
 
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async (async)

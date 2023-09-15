@@ -1,4 +1,4 @@
-module Logger where
+module Utils.Logger where
 
 
 data LgSeverity = LgCritical | LgInfo | LgMessage | LgConnection

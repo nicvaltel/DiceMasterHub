@@ -5,7 +5,7 @@ module Main (main) where
 -- import qualified Websocket.Server
 -- import qualified Websocket.ServerSimple
 -- import qualified Websocket.GamesList
-import qualified RunWebSocketServer
+import qualified Server.RunWebSocketServer as RunWebSocketServer
 import Configuration.Dotenv (parseFile)
 import Data.Maybe (fromJust)
 import Text.Printf (printf)

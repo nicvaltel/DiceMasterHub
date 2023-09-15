@@ -1,4 +1,4 @@
-module Game where
+module GameLogic.GameLogic where
 
 
 data GameMove

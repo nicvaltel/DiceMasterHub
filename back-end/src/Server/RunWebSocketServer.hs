@@ -6,7 +6,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module RunWebSocketServer (runWebSocketServerMVar, runWebSocketServerTMVar) where
+module Server.RunWebSocketServer (runWebSocketServerMVar, runWebSocketServerTMVar) where
 
 import Control.Concurrent (MVar, modifyMVarMasked, modifyMVarMasked_, newMVar)
 import Control.Concurrent.STM
@@ -30,35 +30,18 @@ import qualified Data.IntMap.Strict as IntMap
 import Data.Kind (Type)
 import Data.Text (Text)
 import qualified Data.Text as Text
-import GameRoom (GameRoomsRepo (..), RoomId, RoomsMap)
+import GameRoom.GameRoom (GameRoomsRepo (..), RoomId, RoomsMap)
 import IntMapRepo (IntMapRepo)
 import qualified IntMapRepo
-import Logger (LgSeverity (LgInfo, LgMessage), logger)
+import Utils.Logger (LgSeverity (LgInfo, LgMessage), logger)
 import qualified Network.WebSockets as WS
-import Types
-import Game (GameType(..))
+import Server.Messages
+import GameLogic.GameLogic (GameType(..))
+import Server.MessageProcessor
+import Server.Types
+import Users.User (UserId)
 
-data WebSocketServerState = WebSocketServerState
-  { wsConnectionRepo :: IntMapRepo ConnectionState
-  }
 
-data ConnectionState = ConnectionState
-  { connStateConnection :: WS.Connection,
-    connStateMessageQueue :: TQueue WSMsgFormat
-  }
-
-type ConnectionId = Int
-
-data ConnThreadReader mvar = ConnThreadReader
-  { connThreadConnection :: WS.Connection,
-    connThreadRoomsRepo :: mvar RoomsMap
-  }
-
-data ConnThreadState = ConnThreadState {connStateRoom :: Maybe RoomId}
-
-type ConnThreadWriter = Text
-
-type ConnThread mvar a = RWST (ConnThreadReader mvar) ConnThreadWriter ConnThreadState IO a
 
 class (GameRoomsRepo mvar) => WebSocketServer (mvar :: Type -> Type) where
   addConnection :: mvar WebSocketServerState -> WS.Connection -> TQueue WSMsgFormat -> IO ConnectionId
@@ -89,20 +72,20 @@ class (GameRoomsRepo mvar) => WebSocketServer (mvar :: Type -> Type) where
         logger LgInfo $ show idConn ++ " disconnected"
 
 newWebSocketServerState :: WebSocketServerState
-newWebSocketServerState = WebSocketServerState {wsConnectionRepo = IntMapRepo.empty}
+newWebSocketServerState = undefined
 
-addConnToState :: WS.Connection -> TQueue WSMsgFormat -> WebSocketServerState -> (WebSocketServerState, ConnectionId)
-addConnToState conn connStateMessageQueue wssState =
-  let repo = wsConnectionRepo wssState
-      connState = ConnectionState {connStateConnection = conn, connStateMessageQueue}
-      (newRepo, idConn) = IntMapRepo.append connState repo
-   in (WebSocketServerState {wsConnectionRepo = newRepo}, idConn)
+-- addConnToState :: WS.Connection -> TQueue WSMsgFormat -> WebSocketServerState -> (WebSocketServerState, ConnectionId)
+-- addConnToState conn connStateMessageQueue wssState =
+--   let repo = wsConnectionRepo wssState
+--       connState = ConnectionState {connStateConnection = conn, connStateMessageQueue}
+--       (newRepo, idConn) = IntMapRepo.append connState repo
+--    in (WebSocketServerState {wsConnectionRepo = newRepo}, idConn)
 
-removeConnFromState :: ConnectionId -> WebSocketServerState -> WebSocketServerState
-removeConnFromState idConn wssState =
-  let repo = wsConnectionRepo wssState
-      newRepo = IntMapRepo.delete idConn repo
-   in WebSocketServerState {wsConnectionRepo = newRepo}
+-- removeConnFromState :: ConnectionId -> WebSocketServerState -> WebSocketServerState
+-- removeConnFromState idConn wssState =
+--   let repo = wsConnectionRepo wssState
+--       newRepo = IntMapRepo.delete idConn repo
+--    in WebSocketServerState {wsConnectionRepo = newRepo}
 
 checkForExistingUser :: WS.Connection -> IO ()
 checkForExistingUser _ = pure ()
@@ -141,32 +124,15 @@ wsThreadMessageListner idConn = forever $ do
   liftIO $ logger LgInfo $ "RECIEVE (#" <> show idConn <> "): " <> Text.unpack msg
   case (toWebSocketInputMessage msg) of
     LogInOutMsg logMsg -> processMsgLogInOut logMsg
-    InitJoinRoomMsg ijrMsg -> processInitJoinRoom ijrMsg
+    InitJoinRoomMsg ijrMsg -> do
+      userId <- liftIO $ userIdFromConnectionId idConn
+      processInitJoinRoom userId ijrMsg
     GameActionMsg gameActMsg -> processGameActionMsg gameActMsg
     IncorrectMsg txts -> processIncorrectMsg txts
 
-processMsgLogInOut :: LogInOut -> ConnThread mvar ()
-processMsgLogInOut (Login username) = undefined
-processMsgLogInOut Logout = undefined
+userIdFromConnectionId :: ConnectionId -> IO UserId
+userIdFromConnectionId = undefined -- TODO implement
 
-processInitJoinRoom :: (GameRoomsRepo mvar) => InitJoinRoom -> ConnThread mvar ()
-processInitJoinRoom (InitGameRoom params) = do 
-  ConnThreadReader _ mvarRooms <- ask
-  newRoomId <- liftIO $ createGameRoom 0 GameType mvarRooms
-  sendWebSocketOutputMessage (GameRoomCreatedMsg newRoomId)
-processInitJoinRoom (JoinGameRoom roomId) = undefined
-
-processGameActionMsg :: GameAction -> ConnThread mvar ()
-processGameActionMsg (GameAction params) = undefined
-
-processIncorrectMsg :: [Text] -> ConnThread mvar ()
-processIncorrectMsg _ = sendWebSocketOutputMessage ResendIncorrectMsg
-
-sendWebSocketOutputMessage :: WebSocketOutputMessage -> ConnThread mvar ()
-sendWebSocketOutputMessage msg = do
-  liftIO $ logger LgMessage (Text.unpack $ fromWebSocketOutputMessage msg)
-  ConnThreadReader conn _ <- ask
-  liftIO $ WS.sendTextData conn (fromWebSocketOutputMessage msg :: Text)
 
 runWebSocketServerMVar :: String -> Int -> IO ()
 runWebSocketServerMVar host port = (runWebSocketServer host port :: IO (MVar WebSocketServerState)) >> pure ()
