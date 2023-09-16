@@ -1,9 +1,10 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
-module IntMapRepo (IntMapRepo, empty, append, delete, clean) where
+module IntMapRepo (IntMapRepo, empty, append, delete, clean, modify, lookup) where
 
 import Data.IntMap (IntMap)
 import qualified Data.IntMap.Strict as IntMap
+import Prelude hiding (lookup)
 
 type Key = Int
 
@@ -35,12 +36,18 @@ append value IntMapRepo {freeIds, maxId, intMap} = do
   (newIntMapRepo, id')
 
 delete :: Key -> IntMapRepo a -> IntMapRepo a
-delete id' IntMapRepo {freeIds, maxId, intMap} =
+delete idx IntMapRepo {freeIds, maxId, intMap} =
   IntMapRepo
-    { freeIds = id' : freeIds,
+    { freeIds = idx : freeIds,
       maxId = maxId,
-      intMap = IntMap.delete id' intMap
+      intMap = IntMap.delete idx intMap
     }
+
+modify :: (a -> a) -> Key -> IntMapRepo a -> IntMapRepo a
+modify f idx  repo@IntMapRepo{intMap} = repo{intMap = IntMap.update (Just . f) idx intMap}
+
+lookup :: Key -> IntMapRepo a -> Maybe a 
+lookup idx IntMapRepo{intMap} = IntMap.lookup idx intMap
 
 -- | Garbage collector for IntMapRepo - force empty freeIds and reorganize intMap
 clean :: IntMapRepo a -> IntMapRepo a

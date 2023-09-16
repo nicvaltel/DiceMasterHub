@@ -1,7 +1,8 @@
 {-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module GameRoom.GameRoom
-  ( GameRoomsRepo (..),
+  ( GameRoomRepo (..),
     RoomId,
     GameRoomStatus (..),
     GameRoomMessage,
@@ -33,10 +34,7 @@ data GameRoomMessage
 
 type RoomsMap = IntMap GameRoom
 
-class GameRoomsRepo mvar where
-  createGameRoomsRepo :: IO (mvar RoomsMap)
-  createGameRoom :: UserId -> GameType -> mvar RoomsMap -> IO (Either RoomId RoomId)
-  findUsersActiveRoom :: mvar RoomsMap -> IO (Maybe RoomId)
+
 
 data GameRoom = GameRoom
   { roomGameType :: GameType,
@@ -60,12 +58,17 @@ newGameRoom userId gameType gameBoardState =
       roomBoardState = gameBoardState
     }
 
-instance GameRoomsRepo TMVar where
-  createGameRoomsRepo :: IO (TMVar RoomsMap)
-  createGameRoomsRepo = newTMVarIO (IntMap.empty :: IntMap GameRoom)
+class GameRoomRepo db where
+  createGameRoomRepo :: IO db
+  createGameRoom :: db -> UserId -> GameType -> IO (Either RoomId RoomId)
+  findUsersActiveRoom :: db -> IO (Maybe RoomId)
 
-  createGameRoom :: UserId -> GameType -> TMVar RoomsMap -> IO (Either RoomId RoomId)
-  createGameRoom userId gameType mvRepo = do
+instance GameRoomRepo (TMVar RoomsMap) where
+  createGameRoomRepo :: IO (TMVar RoomsMap)
+  createGameRoomRepo = newTMVarIO (IntMap.empty :: IntMap GameRoom)
+
+  createGameRoom :: TMVar RoomsMap -> UserId -> GameType ->  IO (Either RoomId RoomId)
+  createGameRoom mvRepo userId gameType  = do
     let newRoom = newGameRoom userId gameType (newGameBoardState gameType)
     liftIO $ atomically $ do
       repo <- takeTMVar mvRepo
@@ -76,17 +79,17 @@ instance GameRoomsRepo TMVar where
           pure (Right userId)
         Just _ -> pure (Left userId) -- gameroom for current user is already active
 
-  findUsersActiveRoom :: TMVar RoomsMap -> IO (Maybe RoomId)
-  findUsersActiveRoom mvRepo = do
-    repo <- atomically $ readTMVar mvRepo
-    pure Nothing
+  -- findUsersActiveRoom :: TMVar RoomsMap -> IO (Maybe RoomId)
+  -- findUsersActiveRoom mvRepo = do
+  --   repo <- atomically $ readTMVar mvRepo
+  --   pure Nothing
 
-instance GameRoomsRepo MVar where
-  createGameRoomsRepo :: IO (MVar RoomsMap)
-  createGameRoomsRepo = newMVar IntMap.empty
+instance GameRoomRepo (MVar RoomsMap) where
+  createGameRoomRepo :: IO (MVar RoomsMap)
+  createGameRoomRepo = newMVar IntMap.empty
 
-  createGameRoom :: UserId -> GameType -> MVar RoomsMap -> IO (Either RoomId RoomId)
-  createGameRoom userId gameType mvRepo = do
+  createGameRoom :: MVar RoomsMap -> UserId -> GameType ->  IO (Either RoomId RoomId)
+  createGameRoom mvRepo userId gameType  = do
     let newRoom = newGameRoom userId gameType (newGameBoardState gameType)
     liftIO $ modifyMVarMasked mvRepo $ \repo ->
       case IntMap.lookup userId repo of

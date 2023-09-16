@@ -34,10 +34,10 @@ library
       Pentest.TreadsProcessor1
       Pentest.Websocket.Server
       Pentest.Websocket.ServerSimple
+      Server.Connections
       Server.GamesList
       Server.MessageProcessor
       Server.Messages
-      Server.Types
       Server.WebSocketServer
       Types
       Users.User

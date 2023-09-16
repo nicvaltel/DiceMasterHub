@@ -8,34 +8,41 @@ import GameLogic.GameLogic (GameType (..))
 import GameRoom.GameRoom
 import qualified Network.WebSockets as WS
 import Server.Messages
-import Server.Types
 import Users.User (UserId)
 import Utils.Logger
+import Network.WebSockets (Connection)
 
-processMsgLogInOut :: LogInOut -> ConnThread mvar ()
+processMsgLogInOut :: LogInOut -> IO ()
 processMsgLogInOut (Login username) = undefined
 processMsgLogInOut Logout = undefined
 
-processInitJoinRoom :: (GameRoomsRepo mvar) => UserId -> InitJoinRoom -> ConnThread mvar ()
+processInitJoinRoom ::  UserId -> InitJoinRoom -> IO ()
 processInitJoinRoom userId (InitGameRoom params) = do
-  ConnThreadReader _ mvarRooms <- ask
-  mbNewRoomId <- liftIO $ createGameRoom userId (extractGameType params) mvarRooms -- TODO get GameType
-  case mbNewRoomId of
-    Right newRoomId -> sendWebSocketOutputMessage (GameRoomCreatedMsg newRoomId)
-    Left oldRoomId -> sendWebSocketOutputMessage (GameRoomIsAlreadyActiveMsg oldRoomId)
+  pure ()
+  -- ConnThreadReader _ mvarRooms <- ask
+  -- mbNewRoomId <- liftIO $ createGameRoom userId (extractGameType params) mvarRooms -- TODO get GameType
+  -- case mbNewRoomId of
+  --   Right newRoomId -> sendWebSocketOutputMessage (GameRoomCreatedMsg newRoomId)
+  --   Left oldRoomId -> sendWebSocketOutputMessage (GameRoomIsAlreadyActiveMsg oldRoomId)
 processInitJoinRoom userId (JoinGameRoom roomId) = undefined
 
-processGameActionMsg :: GameAction -> ConnThread mvar ()
+processGameActionMsg :: GameAction -> IO ()
 processGameActionMsg (GameAction params) = undefined
 
-processIncorrectMsg :: [Text] -> ConnThread mvar ()
+processIncorrectMsg :: [Text] -> IO ()
 processIncorrectMsg _ = sendWebSocketOutputMessage ResendIncorrectMsg
 
-sendWebSocketOutputMessage :: WebSocketOutputMessage -> ConnThread mvar ()
+sendWebSocketOutputMessage :: WebSocketOutputMessage -> IO ()
 sendWebSocketOutputMessage msg = do
-  liftIO $ logger LgMessage (Text.unpack $ fromWebSocketOutputMessage msg)
-  ConnThreadReader conn _ <- ask
-  liftIO $ WS.sendTextData conn (fromWebSocketOutputMessage msg :: Text)
+  -- liftIO $ logger LgMessage (Text.unpack $ fromWebSocketOutputMessage msg)
+  -- ConnThreadReader conn _ <- ask
+  -- liftIO $ WS.sendTextData conn (fromWebSocketOutputMessage msg :: Text)
+  pure ()
 
 extractGameType :: [WSMsgFormat] -> GameType
 extractGameType = undefined -- TODO implement
+
+askForExistingUser :: Connection -> IO ()
+askForExistingUser conn = sendWebSocketOutputMessage AskForExistingUserMsg
+
+

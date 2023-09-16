@@ -5,7 +5,7 @@ module Main (main) where
 -- import qualified Websocket.Server
 -- import qualified Websocket.ServerSimple
 -- import qualified Websocket.GamesList
-import qualified Server.WebSocketServer as WebSocketServer
+import qualified Server.WebSocketServer as WSS
 import Configuration.Dotenv (parseFile)
 import Data.Maybe (fromJust)
 import Text.Printf (printf)
@@ -30,5 +30,6 @@ main = do
     cfg <- parseFile "config.env"
     let host = fromJust $ lookup "HOST" cfg
     let port = read . fromJust $ lookup "PORT" cfg
+    let pingTime = read . fromJust $ lookup "PING_TIME" cfg
     putStrLn $ (printf "Listening at: %s:%d" host port :: String)
-    WebSocketServer.runWebSocketServerTMVar host port 
+    WSS.runWebSocketServer host port pingTime

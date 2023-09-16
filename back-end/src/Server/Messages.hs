@@ -20,6 +20,7 @@ data WebSocketOutputMessage
   = ResendIncorrectMsg
   | GameRoomCreatedMsg RoomId
   | GameRoomIsAlreadyActiveMsg RoomId -- unable to create new gameroom before closing the old one
+  | AskForExistingUserMsg
 
 class WebSocketMSG a where
   toWebSocketInputMessage :: a -> WebSocketInputMessage
@@ -42,3 +43,4 @@ instance WebSocketMSG Text where
   fromWebSocketOutputMessage ResendIncorrectMsg = "Resend\n"
   fromWebSocketOutputMessage (GameRoomCreatedMsg roomId) = "RoomWaitingForParticipant\n" <> Text.pack (show roomId) <> "\n"
   fromWebSocketOutputMessage (GameRoomIsAlreadyActiveMsg roomId) = "RoomWaitingForParticipant\n" <> Text.pack (show roomId) <> "\n"
+  fromWebSocketOutputMessage AskForExistingUserMsg = "AskForExistingUser\n"
