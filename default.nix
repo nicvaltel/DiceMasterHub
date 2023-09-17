@@ -27,7 +27,15 @@ in
 
       pkgs.go
       pkgs.gopls # Official language server for the Go language
+      
       pkgs.websocat # Websocat is a command-line utility that can help you test WebSocket connections
+      pkgs.docker-compose
+
+      pkgs.pcre
+      pkgs.postgresql
+      pkgs.glibc
+      # pkgs.haskellPackages.postgresql-simple-migration
+
     ];
 
 }
