@@ -25,6 +25,7 @@ source-repository head
 
 library
   exposed-modules:
+      Adapter.PostgreSQL.Common
       GameLogic.GameLogic
       GameRoom.GameRoom
       IntMapRepo
@@ -40,6 +41,7 @@ library
       Server.Messages
       Server.WebSocketServer
       Types
+      Users.RunDB
       Users.User
       Utils.Utils
   other-modules:
@@ -52,12 +54,19 @@ library
     , base >=4.7 && <5
     , bytestring
     , containers
+    , data-has
     , dotenv
+    , either
+    , exceptions
     , hashable
     , mtl
+    , postgresql-simple
+    , postgresql-simple-migration
     , random
+    , resource-pool
     , stm
     , text
+    , unliftio
     , websockets
   default-language: Haskell2010
 
@@ -74,12 +83,19 @@ executable back-end-exe
     , base >=4.7 && <5
     , bytestring
     , containers
+    , data-has
     , dotenv
+    , either
+    , exceptions
     , hashable
     , mtl
+    , postgresql-simple
+    , postgresql-simple-migration
     , random
+    , resource-pool
     , stm
     , text
+    , unliftio
     , websockets
   default-language: Haskell2010
 
@@ -97,11 +113,18 @@ test-suite back-end-test
     , base >=4.7 && <5
     , bytestring
     , containers
+    , data-has
     , dotenv
+    , either
+    , exceptions
     , hashable
     , mtl
+    , postgresql-simple
+    , postgresql-simple-migration
     , random
+    , resource-pool
     , stm
     , text
+    , unliftio
     , websockets
   default-language: Haskell2010

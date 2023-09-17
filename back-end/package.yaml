@@ -31,6 +31,13 @@ dependencies:
 - hashable
 - websockets
 - dotenv
+- exceptions
+- either
+- resource-pool
+- data-has
+- unliftio
+- postgresql-simple
+- postgresql-simple-migration
 # - record-dot-preprocessor
 # - aeson
 

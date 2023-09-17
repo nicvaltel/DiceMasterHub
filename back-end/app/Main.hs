@@ -6,10 +6,11 @@ module Main (main) where
 -- import qualified Websocket.ServerSimple
 -- import qualified Websocket.GamesList
 import qualified Server.WebSocketServer as WSS
+import qualified Users.RunDB
 import Configuration.Dotenv (parseFile)
 import Data.Maybe (fromJust)
 import Text.Printf (printf)
--- import Text.Printf (printf)
+
 
 main :: IO ()
 main = do 
@@ -27,9 +28,14 @@ main = do
     --         let portNum = read (args !! 1) :: Int
     --         Websocket.GamesList.main address portNum
 
-    cfg <- parseFile "config.env"
-    let host = fromJust $ lookup "HOST" cfg
-    let port = read . fromJust $ lookup "PORT" cfg
-    let pingTime = read . fromJust $ lookup "PING_TIME" cfg
-    putStrLn $ (printf "Listening at: %s:%d" host port :: String)
-    WSS.runWebSocketServer host port pingTime
+
+    -- cfg <- parseFile "config.env"
+    -- let host = fromJust $ lookup "HOST" cfg
+    -- let port = read . fromJust $ lookup "PORT" cfg
+    -- let pingTime = read . fromJust $ lookup "PING_TIME" cfg
+    -- putStrLn $ (printf "Listening at: %s:%d" host port :: String)
+    -- WSS.runWebSocketServer host port pingTime
+
+    Users.RunDB.runDB "config.env"
+
+

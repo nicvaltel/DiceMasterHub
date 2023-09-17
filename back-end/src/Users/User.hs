@@ -5,6 +5,8 @@ module Users.User where
 
 import Data.Text (Text)
 import qualified Data.Text as Text
+-- import qualified Adapter.PostgreSQL.Adapter as PG
+-- import qualified Adapter.PostgreSQL.Common as PG
 
 data User = User
   { userId :: UserId,
