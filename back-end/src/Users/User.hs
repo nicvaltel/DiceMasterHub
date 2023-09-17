@@ -13,7 +13,7 @@ data User = User
 
 mkUser userId username = User userId username
 
-type UserId = Int
+newtype UserId = UserId {unUserId :: Int}
 
 type Username = Text
 

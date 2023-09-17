@@ -10,6 +10,7 @@ module Server.Connections
     ConnectionState,
     ConnectionsRepo (..),
     ConnectionsMap,
+    ConnectionStatus(..)
   )
 where
 
@@ -25,29 +26,33 @@ import IntMapRepo
 import qualified Network.WebSockets as WS
 import Users.User (UserId)
 
-type ConnectionId = Int
+newtype ConnectionId = ConnId { unConnectionId :: Int }
+  deriving Show
 
-data ConnectionState = ConnectionState {connStateConnection :: WS.Connection, connStateUserId :: UserId}
+data ConnectionStatus = CSNormal | CSConnectionNotFound
+
+data ConnectionState = ConnectionState {connStateConnection :: WS.Connection, connStateUserId :: UserId, connStatus :: ConnectionStatus}
 
 type ConnectionsMap = IntMapRepo ConnectionState -- key = ConnectionId
 
 class ConnectionsRepo db where
   createConnsRepo :: IO (db)
-  addConn :: db -> WS.Connection -> UserId -> IO ConnectionId
+  addConn :: db -> WS.Connection -> UserId -> ConnectionStatus -> IO ConnectionId
   updateUser :: db -> ConnectionId -> UserId -> IO ()
   removeConn :: db -> ConnectionId -> IO ()
   lookupConnState :: db -> ConnectionId -> IO (Maybe ConnectionState)
   userIdFromConnectionId :: db -> ConnectionId -> IO (Maybe UserId)
+  getConnStatus :: db -> ConnectionId -> IO ConnectionStatus
 
 
 instance ConnectionsRepo (TMVar ConnectionsMap) where
   createConnsRepo :: IO (TMVar ConnectionsMap)
   createConnsRepo = newTMVarIO IntMapRepo.empty
 
-  addConn :: TMVar ConnectionsMap -> WS.Connection -> UserId -> IO ConnectionId
-  addConn tmvRepo conn userId = atomically $ do
+  addConn :: TMVar ConnectionsMap -> WS.Connection -> UserId -> ConnectionStatus -> IO ConnectionId
+  addConn tmvRepo conn userId state = atomically $ do
     repo <- takeTMVar tmvRepo
-    let (newWssState, idConn) = addConnToState repo conn userId
+    let (newWssState, idConn) = addConnToState repo conn userId state
     putTMVar tmvRepo newWssState
     pure idConn
 
@@ -64,24 +69,27 @@ instance ConnectionsRepo (TMVar ConnectionsMap) where
     putTMVar tmvRepo newWssState
 
   lookupConnState :: TMVar ConnectionsMap -> ConnectionId -> IO (Maybe ConnectionState)
-  lookupConnState tmvRepo idConn = atomically $ (IntMapRepo.lookup idConn) <$> readTMVar tmvRepo
+  lookupConnState tmvRepo (ConnId idConn) = atomically $ (IntMapRepo.lookup idConn) <$> readTMVar tmvRepo
 
   userIdFromConnectionId :: TMVar ConnectionsMap -> ConnectionId -> IO (Maybe UserId)
-  userIdFromConnectionId tmvRepo idConn = do
+  userIdFromConnectionId tmvRepo idConn = (connStateUserId <$>) <$> lookupConnState tmvRepo idConn
+
+  getConnStatus ::  TMVar ConnectionsMap -> ConnectionId -> IO ConnectionStatus
+  getConnStatus tmvRepo idConn = do
     mbConn <- lookupConnState tmvRepo idConn
     case mbConn of
-      Nothing -> pure Nothing
-      Just ConnectionState{connStateUserId} -> pure $ Just connStateUserId
+      Nothing -> pure CSConnectionNotFound
+      Just ConnectionState{connStatus} -> pure $ connStatus
 
 
-addConnToState :: ConnectionsMap -> WS.Connection -> UserId -> (ConnectionsMap, ConnectionId)
-addConnToState repo conn userId =
-  let connState = ConnectionState {connStateConnection = conn, connStateUserId = userId}
+addConnToState :: ConnectionsMap -> WS.Connection -> UserId -> ConnectionStatus -> (ConnectionsMap, ConnectionId)
+addConnToState repo conn userId status =
+  let connState = ConnectionState {connStateConnection = conn, connStateUserId = userId, connStatus = status}
       (newRepo, idConn) = IntMapRepo.append connState repo
-   in (newRepo, idConn)
+   in (newRepo, ConnId idConn)
 
 removeConnFromState :: ConnectionsMap -> ConnectionId -> ConnectionsMap
-removeConnFromState repo idConn = IntMapRepo.delete idConn repo
+removeConnFromState repo (ConnId idConn) = IntMapRepo.delete idConn repo
 
 updateUserInConnState :: ConnectionsMap -> ConnectionId -> UserId -> ConnectionsMap
-updateUserInConnState repo connId userId = IntMapRepo.modify (\cs -> cs {connStateUserId = userId}) connId repo
+updateUserInConnState repo (ConnId connId) userId = IntMapRepo.modify (\cs -> cs {connStateUserId = userId}) connId repo

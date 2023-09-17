@@ -19,8 +19,8 @@ import qualified Network.WebSockets as WS
 import Server.Connections
 import Server.MessageProcessor
 import Server.Messages
-import Users.User (UserId)
-import Utils.Logger (LgSeverity (LgInfo), logger)
+import Users.User (UserId(..))
+import Utils.Utils (LgSeverity (LgInfo, LgError), logger, tshow)
 
 type PingTime = Int
 
@@ -28,14 +28,14 @@ data WSSApp a = WSSApp {wssConnRepo :: TMVar ConnectionsMap, wssGameRoomRepo :: 
 
 class WebSocketServer wss where
   webSocketServer :: wss -> PingTime -> WS.ServerApp
-  wsThreadMessageListener :: wss -> WS.Connection -> Int -> IO ()
+  wsThreadMessageListener :: wss -> WS.Connection -> ConnectionId -> IO ()
 
 instance WebSocketServer (WSSApp a) where
   webSocketServer :: WSSApp a -> PingTime -> WS.ServerApp
   webSocketServer wss@WSSApp{wssConnRepo, wssGameRoomRepo, wssUserRepo} pingTime = \pending -> do
     conn <- WS.acceptRequest pending
     userId <- checkForExistingUser conn
-    idConn <- addConn wssConnRepo conn userId
+    idConn <- addConn wssConnRepo conn userId CSNormal
     logger LgInfo $ show idConn ++ " connected"
     WS.withPingThread conn pingTime (pure ()) $ do
       finally
@@ -46,24 +46,31 @@ instance WebSocketServer (WSSApp a) where
         removeConn wssConnRepo idConn
         logger LgInfo $ show idConn ++ " disconnected"
 
-  wsThreadMessageListener :: WSSApp a -> WS.Connection -> Int -> IO ()
-  wsThreadMessageListener WSSApp {wssConnRepo, wssGameRoomRepo, wssUserRepo} conn idConn = forever $ do
-    (msg :: WSMsgFormat) <- WS.receiveData conn
-    logger LgInfo $ "RECIEVE #(" <> show idConn <> "): " <> Text.unpack msg
-    case (toWebSocketInputMessage msg) of
-      LogInOutMsg logMsg -> processMsgLogInOut logMsg
-      InitJoinRoomMsg ijrMsg -> do
-        mbUserId <- userIdFromConnectionId wssConnRepo idConn
-        case mbUserId of
-          Nothing -> undefined
-          Just userId -> processInitJoinRoom userId ijrMsg
-      GameActionMsg gameActMsg -> processGameActionMsg gameActMsg
-      IncorrectMsg txts -> processIncorrectMsg txts
-    pure ()
+  wsThreadMessageListener :: WSSApp a -> WS.Connection -> ConnectionId -> IO ()
+  wsThreadMessageListener WSSApp{wssConnRepo, wssGameRoomRepo, wssUserRepo} conn idConn =
+    forever $ do
+      (msg :: WSMsgFormat) <- WS.receiveData conn
+      logger LgInfo $ "RECIEVE #(" <> show idConn <> "): " <> Text.unpack msg
+      connStatus <- getConnStatus wssConnRepo idConn -- if connection status is not found, there will be CSConnectionNotFound
+      case connStatus of -- FSM switcher
+        CSNormal -> normalMessageProcessor msg
+        CSConnectionNotFound -> logger LgError $ "ConnectionId not found, but message recieved idConn = " ++ show idConn   
+      pure ()
+    where
+      normalMessageProcessor :: WSMsgFormat -> IO ()
+      normalMessageProcessor msg = 
+          case (toWebSocketInputMessage msg) of
+          LogInOutMsg logMsg -> processMsgLogInOut logMsg
+          InitJoinRoomMsg ijrMsg -> do
+            mbUserId <- userIdFromConnectionId wssConnRepo idConn
+            case mbUserId of
+              Nothing -> undefined
+              Just userId -> processInitJoinRoom userId ijrMsg
+          GameActionMsg gameActMsg -> processGameActionMsg gameActMsg
+          IncorrectMsg txts -> processIncorrectMsg txts
 
 checkForExistingUser :: WS.Connection -> IO UserId
-checkForExistingUser conn = pure 666 -- TODO implement
-
+checkForExistingUser conn = pure (UserId 666) -- TODO implement
 
 
 runWebSocketServer :: String -> Int -> PingTime -> IO ()

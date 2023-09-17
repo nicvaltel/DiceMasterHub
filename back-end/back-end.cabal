@@ -41,7 +41,7 @@ library
       Server.WebSocketServer
       Types
       Users.User
-      Utils.Logger
+      Utils.Utils
   other-modules:
       Paths_back_end
   hs-source-dirs:
