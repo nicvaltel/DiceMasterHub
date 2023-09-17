@@ -1,4 +1,5 @@
 _dependency_fork/postgresql-simple-migration/dist-newstyle/
+DB/postgres/
 
 back-end/dist-newstyle/
 back-end/.stack-work/
