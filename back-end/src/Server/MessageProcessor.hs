@@ -1,3 +1,6 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 module Server.MessageProcessor where
 
 import Control.Monad.IO.Class (liftIO)
@@ -8,15 +11,29 @@ import GameLogic.GameLogic (GameType (..))
 import GameRoom.GameRoom
 import qualified Network.WebSockets as WS
 import Server.Messages
-import Users.User (UserId)
+import Users.User (UserId(..), User (..), UserRepo (..))
 import Utils.Utils
 import Network.WebSockets (Connection)
+import Users.UserPostgresAdapter (UserRepoDB(..))
+import qualified PostgreSQLConnector as PG
+import Database.PostgreSQL.Simple (query, Only (Only))
 
 
 
-processMsgLogInOut :: LogInOut -> IO ()
-processMsgLogInOut (Login username) = undefined
-processMsgLogInOut Logout = undefined
+
+processMsgLogInOut :: UserRepoDB -> LogInOut -> IO (Maybe UserId)
+processMsgLogInOut repo (Login username) = undefined
+processMsgLogInOut repo Logout = undefined
+processMsgLogInOut repo (Register username password) = do
+  res <- addUser repo username password
+  case res of
+    usrId@(Just (UserId uId)) -> do 
+      sendWebSocketOutputMessage $ RegisteredSuccessfullyMst uId
+      pure usrId
+    Nothing -> do 
+      sendWebSocketOutputMessage RegisterErrorMsg
+      pure Nothing
+
 
 processInitJoinRoom ::  UserId -> InitJoinRoom -> IO ()
 processInitJoinRoom userId (InitGameRoom params) = do

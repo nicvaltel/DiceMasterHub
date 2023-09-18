@@ -7,7 +7,7 @@ CREATE SCHEMA dice_master_hub;
 
 
 create table dice_master_hub.users (
-  id bigint primary key not null,
+  id bigserial primary key not null,
   username text not null,
   passwd text not null,
   created timestamp with time zone default (now() at time zone 'utc')

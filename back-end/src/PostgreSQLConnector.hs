@@ -3,22 +3,16 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Adapter.PostgreSQL.Common
-  ( PG,
-    DBConfig(..),
+module PostgreSQLConnector
+  ( DBConfig (..),
     readDBConfig,
-    withAppState,
+    initDBConn,
     withDBConn,
   )
 where
 
-import Configuration.Dotenv (parseFile)
 import Control.Exception (bracket)
-import Control.Monad.Catch (MonadThrow)
-import Control.Monad.IO.Class (MonadIO (liftIO))
-import Control.Monad.RWS (MonadReader, asks)
 import Data.Either.Combinators (maybeToRight)
-import Data.Has (Has (getter))
 import Data.Pool (Pool, defaultPoolConfig, destroyAllResources, newPool, withResource)
 import Data.String (fromString)
 import Database.PostgreSQL.Simple
@@ -34,9 +28,6 @@ import Database.PostgreSQL.Simple.Migration
   )
 import Text.Printf (printf)
 import UnliftIO (throwString)
-
-
-type PG r m = (Has (Pool Connection) r, MonadReader r m, MonadIO m, MonadThrow m)
 
 data DBConfig = DBConfig
   { dbHost :: String,
@@ -62,9 +53,7 @@ readDBConfig env = do
   dbIdleConnTimeout <- maybeToRight "No stripe count defined" (read <$> lookup "POSTGRES_IDLE_CONN_TIMEOUT" env)
   pure DBConfig {dbHost, dbPort, dbName, dbUser, dbPassword, dbStripeCount, dbMaxOpenConnPerStripe, dbIdleConnTimeout}
 
-
--- migrate :: Pool Connection -> IO ()
--- migrate pool = pure ()
+-- private function
 migrate :: Pool Connection -> IO ()
 migrate pool = withResource pool $ \conn -> do
   result <- withTransaction conn (runMigrations False conn cmds)
@@ -78,6 +67,7 @@ migrate pool = withResource pool $ \conn -> do
         MigrationDirectory "migration/PostgreSQL/Migrations_01_Fill_Tables"
       ]
 
+-- private function
 withPool :: DBConfig -> (Pool Connection -> IO a) -> IO a
 withPool conf action = do
   bracket initPool cleanPool action
@@ -89,12 +79,48 @@ withPool conf action = do
     connectString :: String
     connectString = printf "host='%s' port=%d dbname='%s' user='%s' password='%s'" (dbHost conf) (dbPort conf) (dbName conf) (dbUser conf) (dbPassword conf)
 
-withAppState :: DBConfig -> (Pool Connection -> IO a) -> IO a
-withAppState conf action =
-  withPool conf $ \poolConnection -> do
-    migrate poolConnection
-    action poolConnection
+initDBConn :: [(String, String)] -> (Pool Connection  -> IO a) -> IO a
+initDBConn env action =
+  let cfg = getCfg
+   in case cfg of
+        Left err -> error err
+        Right postgreCfg -> do
+          withPool postgreCfg $ \poolConn -> do
+            migrate poolConn
+            action poolConn
+  where
+    getCfg :: Either String DBConfig
+    getCfg = do
+      pgCfg_ <- readDBConfig env
+      pure pgCfg_
 
 withDBConn :: Pool Connection -> (Connection -> IO a) -> IO a
-withDBConn pool action = do
-  withResource pool (\conn -> action conn)
+withDBConn poolConn action = do
+  withResource poolConn (\conn -> action conn)
+
+-- newtype PoolBDConn = PoolBDConn {poolBDConn :: Pool Connection}
+
+
+
+-- How To Run Example
+
+-- {-# LANGUAGE ScopedTypeVariables #-}
+-- {-# LANGUAGE OverloadedStrings #-}
+-- module RunDB where
+
+-- import qualified PostgreSQLConnector as PG
+-- import Configuration.Dotenv (parseFile)
+-- import Data.Text (Text)
+-- import Database.PostgreSQL.Simple (Only (Only), query)
+
+-- runDB :: FilePath -> IO ()
+-- runDB envFile = do
+--   env <- parseFile envFile
+--   PG.initDBConn env $ \poolDBConn -> do
+--     putStrLn "DATABASE STARTED!!!"
+--     result :: [(Int, Text, Int, Text)] <- PG.withDBConn poolDBConn $ \conn -> query conn qryStr (Only (2 :: Int))
+--     case result of
+--       [] -> pure ()
+--       _ -> print result
+--   where
+--     qryStr = "SELECT id, name, price, description FROM public.tmp_test_table where id = ?"

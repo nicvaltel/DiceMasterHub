@@ -21,10 +21,11 @@ import Server.MessageProcessor
 import Server.Messages
 import Users.User (UserId(..))
 import Utils.Utils (LgSeverity (LgInfo, LgError), logger, tshow)
+import Users.UserPostgresAdapter (UserRepoDB)
 
 type PingTime = Int
 
-data WSSApp a = WSSApp {wssConnRepo :: TMVar ConnectionsMap, wssGameRoomRepo :: TMVar RoomsMap, wssUserRepo :: IO a}
+data WSSApp a = WSSApp {connRepo :: TMVar ConnectionsMap, gameRoomRepo :: TMVar RoomsMap, userRepo :: UserRepoDB}
 
 class WebSocketServer wss where
   webSocketServer :: wss -> PingTime -> WS.ServerApp
@@ -32,10 +33,10 @@ class WebSocketServer wss where
 
 instance WebSocketServer (WSSApp a) where
   webSocketServer :: WSSApp a -> PingTime -> WS.ServerApp
-  webSocketServer wss@WSSApp{wssConnRepo, wssGameRoomRepo, wssUserRepo} pingTime = \pending -> do
+  webSocketServer wss@WSSApp{connRepo, gameRoomRepo, userRepo} pingTime = \pending -> do
     conn <- WS.acceptRequest pending
     userId <- checkForExistingUser conn
-    idConn <- addConn wssConnRepo conn userId CSNormal
+    idConn <- addConn connRepo conn userId CSNormal
     logger LgInfo $ show idConn ++ " connected"
     WS.withPingThread conn pingTime (pure ()) $ do
       finally
@@ -43,26 +44,33 @@ instance WebSocketServer (WSSApp a) where
         (disconnect idConn)
     where
       disconnect idConn = do
-        removeConn wssConnRepo idConn
+        removeConn connRepo idConn
         logger LgInfo $ show idConn ++ " disconnected"
 
   wsThreadMessageListener :: WSSApp a -> WS.Connection -> ConnectionId -> IO ()
-  wsThreadMessageListener WSSApp{wssConnRepo, wssGameRoomRepo, wssUserRepo} conn idConn =
+  wsThreadMessageListener WSSApp{connRepo, gameRoomRepo, userRepo} conn idConn =
     forever $ do
       (msg :: WSMsgFormat) <- WS.receiveData conn
       logger LgInfo $ "RECIEVE #(" <> show idConn <> "): " <> Text.unpack msg
-      connStatus <- getConnStatus wssConnRepo idConn -- if connection status is not found, there will be CSConnectionNotFound
+      connStatus <- getConnStatus connRepo idConn -- if connection status is not found, there will be CSConnectionNotFound
       case connStatus of -- FSM switcher
         CSNormal -> normalMessageProcessor msg
         CSConnectionNotFound -> logger LgError $ "ConnectionId not found, but message recieved idConn = " ++ show idConn   
       pure ()
     where
       normalMessageProcessor :: WSMsgFormat -> IO ()
-      normalMessageProcessor msg = 
-          case (toWebSocketInputMessage msg) of
-          LogInOutMsg logMsg -> processMsgLogInOut logMsg
+      normalMessageProcessor msg = do 
+        let wsMsg = toWebSocketInputMessage msg
+        logger LgInfo (show wsMsg)
+        case (toWebSocketInputMessage msg) of
+          LogInOutMsg logMsg -> do
+            mbUid <- processMsgLogInOut userRepo logMsg
+            case mbUid of
+              Just uId -> do
+                updateUser connRepo idConn uId
+              Nothing -> pure ()
           InitJoinRoomMsg ijrMsg -> do
-            mbUserId <- userIdFromConnectionId wssConnRepo idConn
+            mbUserId <- userIdFromConnectionId connRepo idConn
             case mbUserId of
               Nothing -> undefined
               Just userId -> processInitJoinRoom userId ijrMsg
@@ -73,9 +81,9 @@ checkForExistingUser :: WS.Connection -> IO UserId
 checkForExistingUser conn = pure (UserId 666) -- TODO implement
 
 
-runWebSocketServer :: String -> Int -> PingTime -> IO ()
-runWebSocketServer host port pingTime = do
-  grRepo :: TMVar RoomsMap <- createGameRoomRepo
-  cnRepo :: TMVar ConnectionsMap <- createConnsRepo
-  let wss = WSSApp {wssConnRepo = cnRepo, wssGameRoomRepo = grRepo, wssUserRepo = undefined}
+runWebSocketServer :: String -> Int -> PingTime -> UserRepoDB -> IO ()
+runWebSocketServer host port pingTime userRepo = do
+  gameRoomRepo :: TMVar RoomsMap <- createGameRoomRepo
+  connRepo :: TMVar ConnectionsMap <- createConnsRepo
+  let wss = WSSApp {connRepo, gameRoomRepo, userRepo}
   WS.runServer host port $ webSocketServer wss pingTime

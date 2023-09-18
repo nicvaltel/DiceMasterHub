@@ -6,7 +6,7 @@ module Main (main) where
 -- import qualified Websocket.ServerSimple
 -- import qualified Websocket.GamesList
 import qualified Server.WebSocketServer as WSS
-import qualified Users.RunDB
+import qualified RunApp
 import Configuration.Dotenv (parseFile)
 import Data.Maybe (fromJust)
 import Text.Printf (printf)
@@ -36,6 +36,6 @@ main = do
     -- putStrLn $ (printf "Listening at: %s:%d" host port :: String)
     -- WSS.runWebSocketServer host port pingTime
 
-    Users.RunDB.runDB "config.env"
+    RunApp.runDB "config.env"
 
 
