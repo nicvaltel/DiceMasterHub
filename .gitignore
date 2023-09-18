@@ -1,4 +1,6 @@
 _dependency_fork/postgresql-simple-migration/dist-newstyle/
+_dependency_fork/postgresql-simple-migration/src/Main
+
 DB/postgres/
 
 back-end/dist-newstyle/
