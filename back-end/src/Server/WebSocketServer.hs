@@ -8,24 +8,23 @@
 
 module Server.WebSocketServer (runWebSocketServer) where
 
-import Control.Concurrent.STM
-  ( TMVar,
-  )
 import Control.Exception (finally)
 import Control.Monad (forever)
 import qualified Data.Text as Text
-import GameRoom.GameRoom (GameRoomRepo (..), RoomsMap)
+import GameRoom.GameRoom (GameRoomRepo (..))
+import GameRoom.GameRoomTMVarAdapter
 import qualified Network.WebSockets as WS
-import Server.Connections
+import Server.Connection
+import Server.ConnectionTMVarAdapter
 import Server.MessageProcessor
 import Server.Messages
 import Users.User (UserId(..))
-import Utils.Utils (LgSeverity (LgInfo, LgError), logger, tshow)
+import Utils.Utils (LgSeverity (LgInfo, LgError), logger)
 import Users.UserPostgresAdapter (UserRepoDB)
 
 type PingTime = Int
 
-data WSSApp a = WSSApp {connRepo :: TMVar ConnectionsMap, gameRoomRepo :: TMVar RoomsMap, userRepo :: UserRepoDB}
+data WSSApp a = WSSApp {connRepo :: ConnectionRepoTMVar, gameRoomRepo :: GameRoomRepoTMVar, userRepo :: UserRepoDB}
 
 class WebSocketServer wss where
   webSocketServer :: wss -> PingTime -> WS.ServerApp
@@ -83,7 +82,7 @@ checkForExistingUser conn = pure (UserId 666) -- TODO implement
 
 runWebSocketServer :: String -> Int -> PingTime -> UserRepoDB -> IO ()
 runWebSocketServer host port pingTime userRepo = do
-  gameRoomRepo :: TMVar RoomsMap <- createGameRoomRepo
-  connRepo :: TMVar ConnectionsMap <- createConnsRepo
+  gameRoomRepo :: GameRoomRepoTMVar <- createGameRoomRepo
+  connRepo :: ConnectionRepoTMVar <- createConnsRepo
   let wss = WSSApp {connRepo, gameRoomRepo, userRepo}
   WS.runServer host port $ webSocketServer wss pingTime

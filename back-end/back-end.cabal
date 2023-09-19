@@ -27,6 +27,7 @@ library
   exposed-modules:
       GameLogic.GameLogic
       GameRoom.GameRoom
+      GameRoom.GameRoomTMVarAdapter
       IntMapRepo
       Pentest.GameMoveProcessor
       Pentest.RunGames1
@@ -36,7 +37,8 @@ library
       Pentest.Websocket.ServerSimple
       PostgreSQLConnector
       RunApp
-      Server.Connections
+      Server.Connection
+      Server.ConnectionTMVarAdapter
       Server.GamesList
       Server.MessageProcessor
       Server.Messages
