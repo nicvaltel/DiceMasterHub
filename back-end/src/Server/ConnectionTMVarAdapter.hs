@@ -5,7 +5,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Server.ConnectionTMVarAdapter (ConnectionRepoTMVar) where
+module Server.ConnectionTMVarAdapter (ConnectionRepoTMVar(..)) where
 
 import Control.Concurrent.STM
   ( TMVar,
@@ -15,10 +15,10 @@ import Control.Concurrent.STM
     readTMVar,
     takeTMVar,
   )
-import IntMapRepo (empty, lookup)
 import qualified Network.WebSockets as WS
 import Server.Connection
 import Users.User (UserId)
+import IntMapRepo
 
 newtype ConnectionRepoTMVar = ConnectionRepoTMVar (TMVar ConnectionsMap)
 
@@ -57,3 +57,17 @@ instance ConnectionsRepo ConnectionRepoTMVar where
     case mbConn of
       Nothing -> pure CSConnectionNotFound
       Just ConnectionState {connStatus} -> pure $ connStatus
+
+type ConnectionsMap = IntMapRepo ConnectionState -- key = ConnectionId
+
+addConnToState :: ConnectionsMap -> WS.Connection -> UserId -> ConnectionStatus -> (ConnectionsMap, ConnectionId)
+addConnToState repo conn userId status =
+  let connState = ConnectionState {connStateConnection = conn, connStateUserId = userId, connStatus = status}
+      (newRepo, idConn) = IntMapRepo.append connState repo
+   in (newRepo, ConnId idConn)
+
+removeConnFromState :: ConnectionsMap -> ConnectionId -> ConnectionsMap
+removeConnFromState repo (ConnId idConn) = IntMapRepo.delete idConn repo
+
+updateUserInConnState :: ConnectionsMap -> ConnectionId -> UserId -> ConnectionsMap
+updateUserInConnState repo (ConnId connId) userId = IntMapRepo.modify (\cs -> cs {connStateUserId = userId}) connId repo

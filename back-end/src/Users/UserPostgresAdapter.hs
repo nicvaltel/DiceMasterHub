@@ -3,7 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Users.UserPostgresAdapter where
+module Users.UserPostgresAdapter(UserRepoDB(..)) where
 
 import Data.Pool (Pool)
 import Data.Text (Text)

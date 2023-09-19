@@ -2,7 +2,7 @@
 {-# LANGUAGE InstanceSigs #-}
 
 module GameRoom.GameRoomTMVarAdapter
-  ( GameRoomRepoTMVar (..),
+  ( GameRoomRepoTMVar(..),
   )
 where
 
