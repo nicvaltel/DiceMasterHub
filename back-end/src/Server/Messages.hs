@@ -5,12 +5,17 @@ module Server.Messages where
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GameRoom.GameRoom
-import Users.User (Username, Password)
-import Utils.Utils (tshow)
+import Users.User (Password, Username)
+import Utils.Utils (tshow, tReadMaybe)
 
 type WSMsgFormat = Text
 
-data WebSocketInputMessage = LogInOutMsg LogInOut | InitJoinRoomMsg InitJoinRoom | GameActionMsg GameAction | IncorrectMsg [WSMsgFormat]
+data WebSocketInputMessage
+  = LogInOutMsg LogInOut
+  | InitJoinRoomMsg InitJoinRoom
+  | GameActionMsg GameAction
+  | IncorrectMsg [WSMsgFormat]
+  | AnswerExistingUserMsg AnswerExistingUser
   deriving (Show)
 
 data LogInOut = Login [WSMsgFormat] | Logout | Register Username Password
@@ -20,6 +25,9 @@ data InitJoinRoom = InitGameRoom [WSMsgFormat] | JoinGameRoom WSMsgFormat
   deriving (Show)
 
 data GameAction = GameAction [WSMsgFormat]
+  deriving (Show)
+
+data AnswerExistingUser = ExistingAnon Int | ExistingRegisteredUser Int Text | NonExistingUser
   deriving (Show)
 
 data WebSocketOutputMessage
@@ -48,6 +56,15 @@ instance WebSocketMSG Text where
           ("Init" : params) -> InitJoinRoomMsg (InitGameRoom params)
           ["Join", roomId] -> InitJoinRoomMsg (JoinGameRoom roomId)
           ("GameAct" : params) -> GameActionMsg (GameAction params)
+          ["AnswerExistingUser", "ExistingAnon" , uIdtxt] -> 
+            case (tReadMaybe uIdtxt :: Maybe Int) of
+              Just uId -> AnswerExistingUserMsg (ExistingAnon uId)
+              Nothing -> IncorrectMsg txts
+          ["AnswerExistingUser", "ExistingRegisteredUser", uIdtxt, password] -> 
+            case (tReadMaybe uIdtxt :: Maybe Int) of
+              Just uId -> AnswerExistingUserMsg (ExistingRegisteredUser uId password)
+              Nothing -> IncorrectMsg txts
+          ["AnswerExistingUser", "NonExistingUser"] -> AnswerExistingUserMsg NonExistingUser
           _ -> IncorrectMsg txts
 
   fromWebSocketOutputMessage ResendIncorrectMsg = "Resend;"
@@ -56,6 +73,3 @@ instance WebSocketMSG Text where
   fromWebSocketOutputMessage AskForExistingUserMsg = "AskForExistingUser;"
   fromWebSocketOutputMessage RegisterErrorMsg = "RegisterError;"
   fromWebSocketOutputMessage (RegisteredSuccessfullyMst userId) = "RegisteredSuccessfully;" <> tshow userId <> ";"
-
-  
-

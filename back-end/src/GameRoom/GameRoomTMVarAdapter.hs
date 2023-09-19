@@ -23,7 +23,7 @@ instance GameRoomRepo GameRoomRepoTMVar where
   createGameRoomRepo :: IO GameRoomRepoTMVar
   createGameRoomRepo = GameRoomRepoTMVar <$> newTMVarIO (IntMap.empty :: IntMap GameRoom)
 
-  createGameRoom :: GameRoomRepoTMVar -> UserId -> GameType -> IO (Either UserId UserId)
+  createGameRoom :: GameRoomRepoTMVar -> UserId r -> GameType -> IO (Either (UserId r) (UserId r))
   createGameRoom (GameRoomRepoTMVar tmvRepo) userId gameType = do
     let newRoom = newGameRoom userId gameType (newGameBoardState gameType)
     liftIO $ atomically $ do

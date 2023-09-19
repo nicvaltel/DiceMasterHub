@@ -43,6 +43,7 @@ library
       Server.MessageProcessor
       Server.Messages
       Server.WebSocketServer
+      Server.WebSocketServerClass
       Types
       Users.User
       Users.UserPostgresAdapter

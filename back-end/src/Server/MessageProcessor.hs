@@ -1,41 +1,36 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DataKinds #-}
 
 module Server.MessageProcessor where
 
-import Control.Monad.IO.Class (liftIO)
-import Control.Monad.RWS (ask)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import GameLogic.GameLogic (GameType (..))
-import GameRoom.GameRoom
 import qualified Network.WebSockets as WS
 import Server.Messages
-import Users.User (UserId(..), User (..), UserRepo (..))
+import Users.User (UserId(..), UserRepo (..), RegisteredUser (Registered))
 import Utils.Utils
 import Network.WebSockets (Connection)
-import Users.UserPostgresAdapter (UserRepoDB(..))
-import qualified PostgreSQLConnector as PG
-import Database.PostgreSQL.Simple (query, Only (Only))
 
 
 
 
-processMsgLogInOut :: UserRepoDB -> LogInOut -> IO (Maybe UserId)
+processMsgLogInOut :: UserRepo urepo => urepo -> LogInOut -> IO (Maybe (UserId 'Registered))
 processMsgLogInOut repo (Login username) = undefined
 processMsgLogInOut repo Logout = undefined
 processMsgLogInOut repo (Register username password) = do
   res <- addUser repo username password
   case res of
     usrId@(Just (UserId uId)) -> do 
-      sendWebSocketOutputMessage $ RegisteredSuccessfullyMst uId
+      sendWebSocketOutputMessage undefined $ RegisteredSuccessfullyMst uId
       pure usrId
     Nothing -> do 
-      sendWebSocketOutputMessage RegisterErrorMsg
+      sendWebSocketOutputMessage undefined RegisterErrorMsg
       pure Nothing
 
 
-processInitJoinRoom ::  UserId -> InitJoinRoom -> IO ()
+processInitJoinRoom ::  UserId r -> InitJoinRoom -> IO ()
 processInitJoinRoom userId (InitGameRoom params) = do
   pure ()
   -- ConnThreadReader _ mvarRooms <- ask
@@ -49,19 +44,21 @@ processGameActionMsg :: GameAction -> IO ()
 processGameActionMsg (GameAction params) = undefined
 
 processIncorrectMsg :: [Text] -> IO ()
-processIncorrectMsg _ = sendWebSocketOutputMessage ResendIncorrectMsg
+processIncorrectMsg _ = sendWebSocketOutputMessage undefined ResendIncorrectMsg
 
-sendWebSocketOutputMessage :: WebSocketOutputMessage -> IO ()
-sendWebSocketOutputMessage msg = do
-  -- liftIO $ logger LgMessage (Text.unpack $ fromWebSocketOutputMessage msg)
-  -- ConnThreadReader conn _ <- ask
-  -- liftIO $ WS.sendTextData conn (fromWebSocketOutputMessage msg :: Text)
-  pure ()
+processUpdateExistingUser = undefined
+-- processUpdateExistingUser :: wss -> ConnectionId -> Int -> IO ()
+-- processUpdateExistingUser wss connId userId = pure ()
+
+sendWebSocketOutputMessage :: Connection -> WebSocketOutputMessage -> IO ()
+sendWebSocketOutputMessage conn msg = do
+  logger LgMessage (Text.unpack $ fromWebSocketOutputMessage msg)
+  WS.sendTextData conn (fromWebSocketOutputMessage msg :: Text)
 
 extractGameType :: [WSMsgFormat] -> GameType
 extractGameType = undefined -- TODO implement
 
 askForExistingUser :: Connection -> IO ()
-askForExistingUser conn = sendWebSocketOutputMessage AskForExistingUserMsg
+askForExistingUser conn = sendWebSocketOutputMessage conn AskForExistingUserMsg
 
 

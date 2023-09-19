@@ -10,8 +10,8 @@ import qualified Server.WebSocketServer as WSS
 import Text.Printf (printf)
 import Users.UserPostgresAdapter (UserRepoDB(UserRepoDB))
 
-runDB :: FilePath -> IO ()
-runDB envFile = do
+runApp :: FilePath -> IO ()
+runApp envFile = do
   env <- parseFile envFile
   let host = fromJust $ lookup "HOST" env
   let port = read . fromJust $ lookup "PORT" env

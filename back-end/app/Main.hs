@@ -36,6 +36,6 @@ main = do
     -- putStrLn $ (printf "Listening at: %s:%d" host port :: String)
     -- WSS.runWebSocketServer host port pingTime
 
-    RunApp.runDB "config.env"
+    RunApp.runApp "config.env"
 
 

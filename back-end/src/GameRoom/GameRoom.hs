@@ -1,5 +1,8 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE DataKinds #-}
 
 module GameRoom.GameRoom
   ( GameRoomRepo (..),
@@ -21,7 +24,7 @@ import GameLogic.GameLogic
     GameType,
   )
 import Types (Timestamp)
-import Users.User (UserId (..))
+import Users.User (UserId (..), RegisteredUser)
 
 type RoomId = Int -- UserId
 
@@ -31,17 +34,17 @@ data GameRoomMessage
 
 type RoomsMap = IntMap GameRoom
 
-data GameRoom = GameRoom
+data GameRoom = forall (r :: RegisteredUser). GameRoom
   { roomGameType :: GameType,
     roomStatus :: GameRoomStatus,
-    roomUsers :: [UserId],
-    roomChat :: [(UserId, Text)],
-    roomGameActions :: [(UserId, GameMove, Timestamp)],
-    roomRoomActions :: [(UserId, GameMove, Timestamp)],
+    roomUsers :: [UserId r],
+    roomChat :: [(UserId r, Text)],
+    roomGameActions :: [(UserId r, GameMove, Timestamp)],
+    roomRoomActions :: [(UserId r, GameMove, Timestamp)],
     roomBoardState :: GameBoardState
   }
 
-newGameRoom :: UserId -> GameType -> GameBoardState -> GameRoom
+newGameRoom :: UserId r -> GameType -> GameBoardState -> GameRoom
 newGameRoom userId gameType gameBoardState =
   GameRoom
     { roomGameType = gameType,
@@ -55,5 +58,5 @@ newGameRoom userId gameType gameBoardState =
 
 class GameRoomRepo db where
   createGameRoomRepo :: IO db
-  createGameRoom :: db -> UserId -> GameType -> IO (Either UserId UserId) -- if Left then -- gameroom for current user is already active
-  findUsersActiveRoom :: db -> IO (Maybe UserId)
+  createGameRoom :: db -> UserId r -> GameType -> IO (Either (UserId r) (UserId r)) -- if Left then -- gameroom for current user is already active
+  findUsersActiveRoom :: db -> IO (Maybe (UserId r))
