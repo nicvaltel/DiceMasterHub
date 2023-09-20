@@ -18,13 +18,19 @@ where
 
 import qualified Network.WebSockets as WS
 import Users.User (UserId(..), RegisteredUser (..))
+import Text.Printf (printf)
 
 newtype ConnectionId = ConnId {unConnectionId :: Int}
   deriving (Show)
 
 data ConnectionStatus = CSNormal | CSConnectionNotFound
+  deriving (Show)
 
-data ConnectionState = forall r.  ConnectionState {connStateConnection :: WS.Connection, connStateUserId :: UserId (r :: RegisteredUser), connStatus :: ConnectionStatus}
+data ConnectionState = forall r. ConnectionState {connStateConnection :: WS.Connection, connStateUserId :: UserId r, connStatus :: ConnectionStatus}
+
+instance Show (ConnectionState ) where
+  show ConnectionState{connStateUserId, connStatus} = 
+    printf "ConnectionState{WS.Connection, connStateUserId = %s , connStatus = %s}" (show connStateUserId) (show connStatus)
 
 getConnStateUserId :: ConnectionState -> UserId r
 getConnStateUserId ConnectionState {connStateUserId = userId} = 
@@ -36,7 +42,7 @@ class ConnectionsRepo db where
   addConn :: db -> WS.Connection -> UserId r -> ConnectionStatus -> IO ConnectionId
   updateUser :: db -> ConnectionId -> UserId r -> IO ()
   removeConn :: db -> ConnectionId -> IO ()
-  lookupConnState :: db -> ConnectionId -> IO (Maybe ConnectionState)
+  lookupConnState :: db -> ConnectionId -> IO (Maybe (ConnectionState ))
   userIdFromConnectionId :: db -> ConnectionId -> IO (Maybe (UserId r))
   getConnStatus :: db -> ConnectionId -> IO ConnectionStatus
   nextAnonUserId :: db -> IO (UserId 'Anonim)

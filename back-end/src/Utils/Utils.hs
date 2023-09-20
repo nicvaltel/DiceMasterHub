@@ -3,7 +3,7 @@ import qualified Data.Text as T
 import Text.Read (readMaybe)
 
 
-data LgSeverity = LgCritical | LgError | LgInfo | LgMessage | LgConnection
+data LgSeverity = LgCritical | LgError | LgInfo | LgMessage | LgConnection | LgDebug
 
 logger :: LgSeverity -> String -> IO ()
 logger _ = print

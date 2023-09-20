@@ -1,6 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE NamedFieldPuns #-}
 
 module Server.MessageProcessor where
 
@@ -9,24 +10,32 @@ import qualified Data.Text as Text
 import GameLogic.GameLogic (GameType (..))
 import qualified Network.WebSockets as WS
 import Server.Messages
-import Users.User (UserId(..), UserRepo (..), RegisteredUser (Registered))
+import Users.User (UserId(..), UserRepo (..), RegisteredUser (Registered), User (..))
 import Utils.Utils
 import Network.WebSockets (Connection)
 
 
 
 
-processMsgLogInOut :: UserRepo urepo => urepo -> LogInOut -> IO (Maybe (UserId 'Registered))
-processMsgLogInOut repo (Login username) = undefined
-processMsgLogInOut repo Logout = undefined
-processMsgLogInOut repo (Register username password) = do
+processMsgLogInOut :: UserRepo urepo => urepo -> Connection -> LogInOut -> IO (Maybe (UserId 'Registered))
+processMsgLogInOut repo conn (Login username password) = do
+  mbUser <- findUserByUsername repo username
+  case mbUser of
+    Nothing -> sendWebSocketOutputMessage conn LoginErrorMsg >> pure Nothing
+    Just User{userId} -> do
+      passOk <- checkPassword repo userId password
+      if passOk
+        then pure $ Just userId
+        else sendWebSocketOutputMessage conn LoginErrorMsg >> pure Nothing
+processMsgLogInOut repo conn Logout = error "processMsgLogInOut Logout not implemented"
+processMsgLogInOut repo conn (Register username password) = do
   res <- addUser repo username password
   case res of
     usrId@(Just (UserId uId)) -> do 
-      sendWebSocketOutputMessage undefined $ RegisteredSuccessfullyMst uId
+      sendWebSocketOutputMessage conn $ RegisteredSuccessfullyMsg uId
       pure usrId
     Nothing -> do 
-      sendWebSocketOutputMessage undefined RegisterErrorMsg
+      sendWebSocketOutputMessage conn RegisterErrorMsg
       pure Nothing
 
 
@@ -38,17 +47,16 @@ processInitJoinRoom userId (InitGameRoom params) = do
   -- case mbNewRoomId of
   --   Right newRoomId -> sendWebSocketOutputMessage (GameRoomCreatedMsg newRoomId)
   --   Left oldRoomId -> sendWebSocketOutputMessage (GameRoomIsAlreadyActiveMsg oldRoomId)
-processInitJoinRoom userId (JoinGameRoom roomId) = undefined
+processInitJoinRoom userId (JoinGameRoom roomId) = error "processInitJoinRoom JoinGameRoom not implemented"
 
 processGameActionMsg :: GameAction -> IO ()
-processGameActionMsg (GameAction params) = undefined
+processGameActionMsg (GameAction params) = error "processGameActionMsg not implemented"
 
-processIncorrectMsg :: [Text] -> IO ()
-processIncorrectMsg _ = sendWebSocketOutputMessage undefined ResendIncorrectMsg
+processIncorrectMsg :: Connection -> Text -> IO ()
+processIncorrectMsg conn _ = sendWebSocketOutputMessage conn ResendIncorrectMsg
 
-processUpdateExistingUser = undefined
--- processUpdateExistingUser :: wss -> ConnectionId -> Int -> IO ()
--- processUpdateExistingUser wss connId userId = pure ()
+processUpdateExistingUser = error "processUpdateExistingUser not implemented"
+
 
 sendWebSocketOutputMessage :: Connection -> WebSocketOutputMessage -> IO ()
 sendWebSocketOutputMessage conn msg = do
@@ -56,7 +64,7 @@ sendWebSocketOutputMessage conn msg = do
   WS.sendTextData conn (fromWebSocketOutputMessage msg :: Text)
 
 extractGameType :: [WSMsgFormat] -> GameType
-extractGameType = undefined -- TODO implement
+extractGameType = error "extractGameType not implemented"
 
 askForExistingUser :: Connection -> IO ()
 askForExistingUser conn = sendWebSocketOutputMessage conn AskForExistingUserMsg

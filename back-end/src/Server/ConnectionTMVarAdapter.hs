@@ -46,9 +46,9 @@ instance ConnectionsRepo ConnectionRepoTMVar where
 
   updateUser :: ConnectionRepoTMVar -> ConnectionId -> UserId r -> IO ()
   updateUser (ConnectionRepoTMVar tmvRepo) connId userId = atomically $ do
-    repo <- takeTMVar tmvRepo
-    let newRepo = updateUserInConnState repo connId userId
-    putTMVar tmvRepo newRepo
+      repo <- takeTMVar tmvRepo
+      let newRepo = updateUserInConnState repo connId userId
+      putTMVar tmvRepo newRepo
 
   removeConn :: ConnectionRepoTMVar -> ConnectionId -> IO ()
   removeConn (ConnectionRepoTMVar tmvRepo) idConn = atomically $ do
@@ -88,7 +88,10 @@ removeConnFromState consMap (ConnId idConn) =
   consMap{connsIntMap = IntMapRepo.delete idConn (connsIntMap consMap)}
 
 updateUserInConnState :: ConnectionsMap -> ConnectionId -> UserId r -> ConnectionsMap
-updateUserInConnState consMap (ConnId connId) userId = 
-  undefined
+updateUserInConnState consMap@ConnectionsMap{connsIntMap} (ConnId connId) userId = undefined
+  -- let newConnsIntMap = IntMapRepo.modify (\cs -> cs{connStateUserId = userId}) connId connsIntMap
+  -- in {connsIntMap = newConnsIntMap}
+
+  -- error "updateUserInConnState not implemented"
 
   -- consMap{ connsIntMap = IntMapRepo.modify (\cs -> cs {connStateUserId = userId}) connId (connsIntMap consMap) }

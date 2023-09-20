@@ -1,17 +1,16 @@
+{-# LANGUAGE DataKinds #-}
 -- websocat -v ws://127.0.0.1:1234
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-}
 
 module Server.WebSocketServer (runWebSocketServer) where
 
-import Server.WebSocketServerClass
 import Control.Exception (finally)
 import Control.Monad (forever)
 import qualified Data.Text as Text
@@ -22,16 +21,13 @@ import Server.Connection
 import Server.ConnectionTMVarAdapter
 import Server.MessageProcessor
 import Server.Messages
-import Users.User (UserId(..), RegisteredUser (..), UserRepo)
-import Utils.Utils (LgSeverity (LgInfo, LgError), logger)
-import Users.UserPostgresAdapter (UserRepoDB)
-import Server.ConnectionTMVarAdapter 
+import Server.WebSocketServerClass
 import Unsafe.Coerce (unsafeCoerce)
+import Users.User (RegisteredUser (..), UserId (..), UserRepo)
+import Users.UserPostgresAdapter (UserRepoDB)
+import Utils.Utils (LgSeverity (LgError, LgInfo), logger)
 
 data WSSApp a = WSSApp {connRepo :: ConnectionRepoTMVar, gameRoomRepo :: GameRoomRepoTMVar, userRepo :: UserRepoDB}
-
-
-
 
 instance WebSocketServer (WSSApp a) ConnectionRepoTMVar GameRoomRepoTMVar UserRepoDB where
   getConnRepo :: WSSApp a -> crepo

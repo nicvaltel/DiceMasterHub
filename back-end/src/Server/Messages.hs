@@ -6,7 +6,7 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import GameRoom.GameRoom
 import Users.User (Password, Username)
-import Utils.Utils (tshow, tReadMaybe)
+import Utils.Utils (tReadMaybe, tshow)
 
 type WSMsgFormat = Text
 
@@ -14,11 +14,11 @@ data WebSocketInputMessage
   = LogInOutMsg LogInOut
   | InitJoinRoomMsg InitJoinRoom
   | GameActionMsg GameAction
-  | IncorrectMsg [WSMsgFormat]
+  | IncorrectMsg WSMsgFormat
   | AnswerExistingUserMsg AnswerExistingUser
   deriving (Show)
 
-data LogInOut = Login [WSMsgFormat] | Logout | Register Username Password
+data LogInOut = Login Username Password | Logout | Register Username Password
   deriving (Show)
 
 data InitJoinRoom = InitGameRoom [WSMsgFormat] | JoinGameRoom WSMsgFormat
@@ -36,7 +36,8 @@ data WebSocketOutputMessage
   | GameRoomIsAlreadyActiveMsg RoomId -- unable to create new gameroom before closing the old one
   | AskForExistingUserMsg
   | RegisterErrorMsg
-  | RegisteredSuccessfullyMst Int -- UserId
+  | RegisteredSuccessfullyMsg Int -- UserId
+  | LoginErrorMsg
 
 class WebSocketMSG a where
   toWebSocketInputMessage :: a -> WebSocketInputMessage
@@ -47,29 +48,40 @@ class WebSocketMSG a where
 instance WebSocketMSG Text where
   toWebSocketInputMessage txt =
     -- let txts = Text.lines txt
-    let txts = Text.splitOn ";" txt
+    let cleanTxt = if Text.last txt == '\n' then Text.init txt else txt
+        txts = Text.splitOn ";" cleanTxt
      in case txts of
-          [] -> IncorrectMsg []
-          ("Login" : params) -> LogInOutMsg (Login params) -- TODO password processing
+          [] -> IncorrectMsg txt
+          ["Login", username, passwd] -> LogInOutMsg $ Login username passwd
           ["Logout"] -> LogInOutMsg Logout
           ["Register", username, password] -> LogInOutMsg (Register username password)
           ("Init" : params) -> InitJoinRoomMsg (InitGameRoom params)
           ["Join", roomId] -> InitJoinRoomMsg (JoinGameRoom roomId)
           ("GameAct" : params) -> GameActionMsg (GameAction params)
-          ["AnswerExistingUser", "ExistingAnon" , uIdtxt] -> 
-            case (tReadMaybe uIdtxt :: Maybe Int) of
-              Just uId -> AnswerExistingUserMsg (ExistingAnon uId)
-              Nothing -> IncorrectMsg txts
-          ["AnswerExistingUser", "ExistingRegisteredUser", uIdtxt, password] -> 
-            case (tReadMaybe uIdtxt :: Maybe Int) of
-              Just uId -> AnswerExistingUserMsg (ExistingRegisteredUser uId password)
-              Nothing -> IncorrectMsg txts
-          ["AnswerExistingUser", "NonExistingUser"] -> AnswerExistingUserMsg NonExistingUser
-          _ -> IncorrectMsg txts
+          ("AnswerExistingUser" : rest) -> maybeToWSIM $ toWSIMAnswerExistingUser rest
+          _ -> IncorrectMsg txt
+      where
+        maybeToWSIM :: Maybe WebSocketInputMessage-> WebSocketInputMessage
+        maybeToWSIM mbWSIM = maybe (IncorrectMsg txt) id mbWSIM
 
-  fromWebSocketOutputMessage ResendIncorrectMsg = "Resend;"
-  fromWebSocketOutputMessage (GameRoomCreatedMsg roomId) = "RoomWaitingForParticipant;" <> tshow roomId <> ";"
-  fromWebSocketOutputMessage (GameRoomIsAlreadyActiveMsg roomId) = "RoomWaitingForParticipant;" <> tshow roomId <> ";"
-  fromWebSocketOutputMessage AskForExistingUserMsg = "AskForExistingUser;"
-  fromWebSocketOutputMessage RegisterErrorMsg = "RegisterError;"
-  fromWebSocketOutputMessage (RegisteredSuccessfullyMst userId) = "RegisteredSuccessfully;" <> tshow userId <> ";"
+  fromWebSocketOutputMessage ResendIncorrectMsg = "Resend"
+  fromWebSocketOutputMessage (GameRoomCreatedMsg roomId) = "RoomWaitingForParticipant;" <> tshow roomId
+  fromWebSocketOutputMessage (GameRoomIsAlreadyActiveMsg roomId) = "RoomWaitingForParticipant;" <> tshow roomId
+  fromWebSocketOutputMessage AskForExistingUserMsg = "AskForExistingUser"
+  fromWebSocketOutputMessage RegisterErrorMsg = "RegisterError"
+  fromWebSocketOutputMessage (RegisteredSuccessfullyMsg userId) = "RegisteredSuccessfully;" <> tshow userId
+  fromWebSocketOutputMessage LoginErrorMsg = "LoginError"
+
+
+
+toWSIMAnswerExistingUser :: [Text] -> Maybe WebSocketInputMessage
+toWSIMAnswerExistingUser ["ExistingAnon", uIdtxt] =
+  case (tReadMaybe uIdtxt :: Maybe Int) of
+    Just uId -> Just $ AnswerExistingUserMsg (ExistingAnon uId)
+    Nothing -> Nothing
+toWSIMAnswerExistingUser ["ExistingRegisteredUser", uIdtxt, password] =
+  case (tReadMaybe uIdtxt :: Maybe Int) of
+    Just uId -> Just $ AnswerExistingUserMsg (ExistingRegisteredUser uId password)
+    Nothing -> Nothing
+toWSIMAnswerExistingUser ["NonExistingUser"] = Just $ AnswerExistingUserMsg NonExistingUser
+toWSIMAnswerExistingUser _ = Nothing
