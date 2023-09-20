@@ -24,7 +24,7 @@ import qualified Network.WebSockets as WS
 import Server.Connection
 import Server.MessageProcessor
 import Server.Messages
-import Users.User (RegisteredUser (..), UserId (..), UserRepo)
+import Users.User (RegStatus (..), UserId (..), UserRepo)
 import Utils.Utils (LgSeverity (..), logger)
 
 type PingTime = Int

@@ -28,6 +28,7 @@ library
       GameLogic.GameLogic
       GameRoom.GameRoom
       GameRoom.GameRoomTMVarAdapter
+      HSPG.DataKindsPg
       IntMapRepo
       Pentest.GameMoveProcessor
       Pentest.RunGames1
@@ -46,6 +47,7 @@ library
       Server.WebSocketServerClass
       Types
       Users.User
+      Users.User2
       Users.UserPostgresAdapter
       Utils.Utils
   other-modules:
@@ -70,6 +72,7 @@ library
     , random
     , resource-pool
     , stm
+    , template-haskell
     , text
     , time
     , unliftio
@@ -101,6 +104,7 @@ executable back-end-exe
     , random
     , resource-pool
     , stm
+    , template-haskell
     , text
     , time
     , unliftio
@@ -134,6 +138,7 @@ test-suite back-end-test
     , random
     , resource-pool
     , stm
+    , template-haskell
     , text
     , time
     , unliftio

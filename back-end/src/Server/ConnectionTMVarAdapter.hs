@@ -18,7 +18,7 @@ import Control.Concurrent.STM
   )
 import qualified Network.WebSockets as WS
 import Server.Connection
-import Users.User (UserId (..), RegisteredUser(..))
+import Users.User (UserId (..), RegStatus(..))
 import IntMapRepo
 import Utils.Utils (LgSeverity(LgCritical), logger)
 import Control.Monad.IO.Class (liftIO)

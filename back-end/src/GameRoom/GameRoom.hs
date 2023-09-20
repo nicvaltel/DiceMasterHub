@@ -24,7 +24,7 @@ import GameLogic.GameLogic
     GameType,
   )
 import Types (Timestamp)
-import Users.User (UserId (..), RegisteredUser)
+import Users.User (UserId (..), RegStatus)
 
 type RoomId = Int -- UserId
 
@@ -34,7 +34,7 @@ data GameRoomMessage
 
 type RoomsMap = IntMap GameRoom
 
-data GameRoom = forall (r :: RegisteredUser). GameRoom
+data GameRoom = forall (r :: RegStatus). GameRoom
   { roomGameType :: GameType,
     roomStatus :: GameRoomStatus,
     roomUsers :: [UserId r],

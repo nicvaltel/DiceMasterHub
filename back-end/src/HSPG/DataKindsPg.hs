@@ -2,14 +2,15 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
-module HSPG.DataKindsPg where
-import Data.Map.Strict (Map)
-import qualified Data.Map.Strict as Map
+{-# LANGUAGE FlexibleContexts #-}
 
+
+module HSPG.DataKindsPg where
 
 data Temp (u :: TempUnit) = Temp Double
 
 data TempUnit = C | K
+    deriving Show
 
 instance Show (Temp 'C) where
     show (Temp t) = show t ++ "oC"
@@ -17,11 +18,31 @@ instance Show (Temp 'C) where
 instance Show (Temp 'K) where
     show (Temp t) = show t ++ "oK"
 
-data TempContainer = forall u. TempContainer (Map Int (Temp u))
+
+data TempContainer where
+  TempContainer :: Show (Temp u) =>  Temp u -> TempContainer
+
+instance Show TempContainer where
+    show (TempContainer t ) = "TempContainer " ++ show t
 
 
--- testFunc :: IO ()
--- testFunc = do
---     let tm = TempContainer Map.empty
---     let tm1 = Map.insert 1 (Temp 7) tm
---     pure ()
+
+updateTempContainer :: Show (Temp u) => TempContainer -> Temp u -> TempContainer
+updateTempContainer (TempContainer _ ) newTemp = TempContainer newTemp
+
+
+
+
+-- data TempContainer = forall u. TempContainer {tcTemp :: (Temp (u :: TempUnit))}
+
+-- updateTempContainer :: TempContainer -> Temp u -> TempContainer
+-- updateTempContainer tc newTemp = tc{tcTemp = newTemp}
+
+
+-- {-# LANGUAGE ExistentialQuantification #-}
+
+-- instance Show (Temp 'C) where
+--     show (Temp t) = show t ++ "oC"
+
+-- instance Show (Temp 'K) where
+--     show (Temp t) = show t ++ "oK"

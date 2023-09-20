@@ -10,7 +10,7 @@ import qualified Data.Text as Text
 import GameLogic.GameLogic (GameType (..))
 import qualified Network.WebSockets as WS
 import Server.Messages
-import Users.User (UserId(..), UserRepo (..), RegisteredUser (Registered), User (..))
+import Users.User (UserId(..), UserRepo (..), RegStatus (..), User (..))
 import Utils.Utils
 import Network.WebSockets (Connection)
 

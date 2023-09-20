@@ -1,40 +1,75 @@
-{-# LANGUAGE InstanceSigs #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE OverloadedStrings #-}
+
+-- {-# LANGUAGE DataKinds #-}
+-- {-# LANGUAGE FlexibleInstances #-}
+-- {-# LANGUAGE InstanceSigs #-}
+-- {-# LANGUAGE KindSignatures #-}
+-- {-# LANGUAGE NamedFieldPuns #-}
+-- {-# LANGUAGE OverloadedStrings #-}
+-- {-# LANGUAGE ScopedTypeVariables #-}
+-- {-# LANGUAGE GADTs #-}
+-- {-# LANGUAGE TemplateHaskell #-}
 
 module Users.User where
 
 import Data.Text (Text)
-import Text.Printf (printf)
-import Data.Data (Proxy)
+import Data.Data (Typeable)
 
-data User (r :: RegisteredUser) = User {userId :: UserId r, userName :: Username}
+
+data User (r :: RegStatus) =  User {userId :: UserId r, userName :: Username}
   deriving (Show)
 
-newtype UserId (r :: RegisteredUser) = UserId {unUserId :: Int}
+newtype UserId (r :: RegStatus) = UserId {unUserId :: Int}
   deriving (Show)
+
+data RegStatus = Registered | Anonim
+  deriving (Show)
+ 
+
+
+
+
+
+
+-- class GetRegStatus a where
+--   getRegStatus :: a -> RegStatus
+
+-- instance GetRegStatus RegStatus where
+--   getRegStatus Registered = Registered
+--   getRegStatus Anonim = Anonim
+
+-- instance GetRegStatus (User (r :: RegStatus)) where
+--   getRegStatus :: User r -> RegStatus
+--   getRegStatus user = case getRegStatus r of
+--     _ -> Registered
+--     Anonim -> Anonim
+
+
+-- instance GetRegStatus (UserId 'Anonim) where
+--   getRegStatus :: UserId 'Anonim -> RegStatus
+--   getRegStatus _ = Anonim
+
+-- getRegStatus' :: UserId r -> RegStatus
+-- getRegStatus' _ = case (undefined :: r) of
+--   Registered -> Registered
+--   Anonim -> Anonim
+
+
+
 
 
 -- instance Show (User 'Registered) where
---   show User {userId, userName } = 
+--   show User {userId, userName } =
 --     printf "User {userId = %s, userName = %s }" (show userId) (show userName)
 
 -- instance Show (User 'Anonim) where
---   show User {userId, userName } = 
+--   show User {userId, userName } =
 --     printf "User {userId = %s, userName = %s }" (show userId) (show userName)
-
-
--- instance Show (UserId 'Registered) where
---   show (UserId uId) = "Registered UserId = " ++ show uId
-
 -- instance Show (UserId 'Anonim) where
 --   show (UserId uId) = "Anonim UserId = " ++ show uId
-
-
-data RegisteredUser = Registered | Anonim
 
 type Username = Text
 
@@ -49,5 +84,5 @@ class UserRepo db where
   findUserByUsername :: db -> Username -> IO (Maybe (User 'Registered))
   addUser :: db -> Username -> Password -> IO (Maybe (UserId 'Registered)) -- TODO save hashed password
   updateUser :: db -> User 'Registered -> IO Bool
-  deleteUser :: db -> UserId 'Registered-> IO Bool
+  deleteUser :: db -> UserId 'Registered -> IO Bool
   checkPassword :: db -> UserId 'Registered -> Password -> IO Bool -- TODO save hashed password

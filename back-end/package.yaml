@@ -38,6 +38,7 @@ dependencies:
 - resource-pool
 - data-has
 - unliftio
+- template-haskell
 - postgresql-simple
 - postgresql-simple-migration
 # - record-dot-preprocessor
