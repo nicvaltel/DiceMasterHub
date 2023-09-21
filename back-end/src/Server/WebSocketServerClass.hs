@@ -24,7 +24,7 @@ import qualified Network.WebSockets as WS
 import Server.Connection
 import Server.MessageProcessor
 import Server.Messages
-import Users.User (UserId (..), UserRepo)
+import Users.User (UserId (..), UserRepo, RegStatus (..))
 import Utils.Utils (LgSeverity (..), logger)
 
 type PingTime = Int
@@ -40,11 +40,11 @@ class (ConnectionsRepo crepo, GameRoomRepo grrepo, UserRepo urepo) => WebSocketS
   wsThreadMessageListener :: wss -> WS.Connection -> ConnectionId -> IO ()
   wsThreadMessageListener = wsThreadMessageListener'
 
-checkForExistingUser :: WebSocketServer wss c g u => wss -> WS.Connection -> IO UserId
+checkForExistingUser :: WebSocketServer wss c g u => wss -> WS.Connection -> IO (UserId 'Anonim)
 checkForExistingUser wss conn = do
   uId <- nextAnonUserId (getConnRepo wss)
   askForExistingUser conn
-  pure (AnonUserId uId)
+  pure uId
 
 webSocketServer' :: WebSocketServer wss c g u => wss -> PingTime -> WS.ServerApp
 webSocketServer' wss pingTime = \pending -> do
@@ -100,7 +100,7 @@ wsThreadMessageListener' wss conn idConn =
           mbUid <- processMsgLogInOut userRepo conn logMsg
           case mbUid of
             Just uId -> do
-              updateUser connRepo idConn (RegUserId uId)
+              updateUser connRepo idConn uId
               -- for debug
               connState <- lookupConnState (getConnRepo wss) idConn
               logger LgDebug $ show connState

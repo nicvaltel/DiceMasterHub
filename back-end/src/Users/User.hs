@@ -1,42 +1,58 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE GADTs #-}
 
 module Users.User where
 
 import Data.Text (Text)
 
-newtype RegUId = RegUId Int
+data RegStatus = Registered | Anonim
   deriving (Show, Eq, Ord)
 
-newtype AnonUId = AnonUId Int
+newtype UserId (r :: RegStatus) = UserId Int
   deriving (Show, Eq, Ord)
 
-data UserId = RegUserId RegUId | AnonUserId AnonUId
-  deriving (Show, Eq, Ord)
-
-data UserData = UserData {userName :: Username}
+data User (r :: RegStatus) = User {userId :: UserId r, userName :: Username}
   deriving (Show)
-
-data RegUser =  RegUser {regUId :: RegUId, regUserData :: UserData}
-  deriving (Show)
-
-data AnonUser = AnonUser {anonUId :: AnonUId, anonUserData :: UserData}
-  deriving (Show)
-
-data User = RegisteredUser RegUser | AnonimUser AnonUser
-  deriving (Show)
-
-
--- data RegStatus = Registered | Anonim
---   deriving (Show)
 
 type Username = Text
 
 type Password = Text
 
+type AnyUserId = Either (UserId 'Anonim) (UserId 'Registered)
+
+fromAnyUserId :: AnyUserId -> UserId (r :: RegStatus)
+fromAnyUserId (Left (UserId uId)) = UserId uId
+fromAnyUserId (Right (UserId uId)) = UserId uId
+
+class ToAnyUserId (r :: RegStatus) where
+  toAnyUserId :: UserId (r :: RegStatus) -> AnyUserId
+
+instance ToAnyUserId 'Registered where
+  toAnyUserId = Right
+
+instance ToAnyUserId 'Anonim where
+  toAnyUserId = Left
+
 class UserRepo db where
-  findUserById :: db -> RegUId -> IO (Maybe RegUser)
-  findUserByUsername :: db -> Username -> IO (Maybe RegUser)
-  addUser :: db -> Username -> Password -> IO (Maybe RegUId) -- TODO save hashed password
-  updateUser :: db -> RegUser -> IO Bool
-  deleteUser :: db -> RegUId -> IO Bool
-  checkPassword :: db -> RegUId -> Password -> IO Bool -- TODO save hashed password
+  findUserById :: db -> UserId 'Registered -> IO (Maybe (User 'Registered))
+  findUserByUsername :: db -> Username -> IO (Maybe (User 'Registered))
+  addUser :: db -> Username -> Password -> IO (Maybe (UserId 'Registered)) -- TODO save hashed password
+  updateUser :: db -> User 'Registered -> IO Bool
+  deleteUser :: db -> UserId 'Registered -> IO Bool
+  checkPassword :: db -> UserId 'Registered -> Password -> IO Bool -- TODO save hashed password
+
+
+-- data UserId (r :: RegStatus) where
+--   UserId :: ToAnyUserId r => Int -> UserId r
+
+-- data User (r :: RegStatus) where
+--   User :: ToAnyUserId r => UserId r -> Username -> User r
+
+
+-- newtype ToAnyUserId r => UserId (r :: RegStatus) = UserId Int
+--   deriving (Show, Eq, Ord)
+
+-- data ToAnyUserId r => User (r :: RegStatus) = User {userId :: UserId r, userName :: Username}
+--   deriving (Show)

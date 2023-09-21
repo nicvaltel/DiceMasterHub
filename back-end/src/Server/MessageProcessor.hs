@@ -10,28 +10,28 @@ import qualified Data.Text as Text
 import GameLogic.GameLogic (GameType (..))
 import qualified Network.WebSockets as WS
 import Server.Messages
-import Users.User (UserId(..), UserRepo (..), User (..), RegUId (..), RegUser (..))
+import Users.User 
 import Utils.Utils
 import Network.WebSockets (Connection)
 
 
 
 
-processMsgLogInOut :: UserRepo urepo => urepo -> Connection -> LogInOut -> IO (Maybe RegUId)
+processMsgLogInOut :: UserRepo urepo => urepo -> Connection -> LogInOut -> IO (Maybe (UserId 'Registered))
 processMsgLogInOut repo conn (Login username password) = do
   mbRegUser <- findUserByUsername repo username
   case mbRegUser of
     Nothing -> sendWebSocketOutputMessage conn LoginErrorMsg >> pure Nothing
-    Just RegUser{regUId} -> do
-          passOk <- checkPassword repo regUId password
+    Just User{userId} -> do
+          passOk <- checkPassword repo userId password
           if passOk
-            then pure $ Just regUId
+            then pure $ Just userId
             else sendWebSocketOutputMessage conn LoginErrorMsg >> pure Nothing
 processMsgLogInOut repo conn Logout = error "processMsgLogInOut Logout not implemented"
 processMsgLogInOut repo conn (Register username password) = do
   res <- addUser repo username password
   case res of
-    usrId@(Just (RegUId uId)) -> do 
+    usrId@(Just (UserId uId)) -> do 
       sendWebSocketOutputMessage conn $ RegisteredSuccessfullyMsg uId
       pure usrId
     Nothing -> do 
@@ -39,7 +39,7 @@ processMsgLogInOut repo conn (Register username password) = do
       pure Nothing
 
 
-processInitJoinRoom ::  UserId -> InitJoinRoom -> IO ()
+processInitJoinRoom :: UserId r -> InitJoinRoom -> IO ()
 processInitJoinRoom userId (InitGameRoom params) = do
   pure ()
   -- ConnThreadReader _ mvarRooms <- ask

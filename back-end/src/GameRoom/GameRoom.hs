@@ -19,30 +19,30 @@ import GameLogic.GameLogic
     GameType,
   )
 import Types (Timestamp)
-import Users.User (UserId (..))
+import Users.User
 
-type RoomId = UserId -- TODO chane RoomId from UserId to other
+type RoomId = AnyUserId -- TODO chane RoomId from UserId to other
 
 data GameRoomStatus = RoomWaitingForParticipant | GameInProgress | GameFinished GameResult
 
 data GameRoomMessage
 
-type RoomsMap = Map UserId GameRoom
+type RoomsMap = Map AnyUserId GameRoom
 
-data CreatedGameRoom = NewCreatedRoom RoomId | AlreadyActiveRoom RoomId
+data CreatedGameRoom = NewCreatedRoom AnyUserId | AlreadyActiveRoom AnyUserId
   deriving (Show)
 
 data GameRoom = GameRoom
   { roomGameType :: GameType,
     roomStatus :: GameRoomStatus,
-    roomUsers :: [UserId],
-    roomChat :: [(UserId, Text)],
-    roomGameActions :: [(UserId, GameMove, Timestamp)],
-    roomRoomActions :: [(UserId, GameMove, Timestamp)],
+    roomUsers :: [AnyUserId],
+    roomChat :: [(AnyUserId, Text)],
+    roomGameActions :: [(AnyUserId, GameMove, Timestamp)],
+    roomRoomActions :: [(AnyUserId, GameMove, Timestamp)],
     roomBoardState :: GameBoardState
   }
 
-newGameRoom :: UserId -> GameType -> GameBoardState -> GameRoom
+newGameRoom :: AnyUserId -> GameType -> GameBoardState -> GameRoom
 newGameRoom userId gameType gameBoardState =
   GameRoom
     { roomGameType = gameType,
@@ -56,5 +56,5 @@ newGameRoom userId gameType gameBoardState =
 
 class GameRoomRepo db where
   createGameRoomRepo :: IO db
-  createGameRoom :: db -> UserId -> GameType -> IO CreatedGameRoom
-  findUsersActiveRoom :: db -> IO (Maybe UserId)
+  createGameRoom :: db -> AnyUserId -> GameType -> IO CreatedGameRoom
+  findUsersActiveRoom :: db -> IO (Maybe AnyUserId)

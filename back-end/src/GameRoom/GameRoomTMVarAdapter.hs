@@ -14,7 +14,7 @@ import GameLogic.GameLogic
     newGameBoardState,
   )
 import GameRoom.GameRoom
-import Users.User (UserId (..))
+import Users.User (UserId (..), AnyUserId)
 
 newtype GameRoomRepoTMVar = GameRoomRepoTMVar (TMVar RoomsMap)
 
@@ -22,7 +22,7 @@ instance GameRoomRepo GameRoomRepoTMVar where
   createGameRoomRepo :: IO GameRoomRepoTMVar
   createGameRoomRepo = GameRoomRepoTMVar <$> newTMVarIO (Map.empty :: Map RoomId GameRoom)
 
-  createGameRoom :: GameRoomRepoTMVar -> UserId -> GameType -> IO CreatedGameRoom
+  createGameRoom :: GameRoomRepoTMVar -> AnyUserId -> GameType -> IO CreatedGameRoom
   createGameRoom (GameRoomRepoTMVar tmvRepo) userId gameType = do
     let newRoom = newGameRoom userId gameType (newGameBoardState gameType)
     atomically $ do
