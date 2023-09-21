@@ -44,7 +44,7 @@ checkForExistingUser :: WebSocketServer wss c g u => wss -> WS.Connection -> IO 
 checkForExistingUser wss conn = do
   uId <- nextAnonUserId (getConnRepo wss)
   askForExistingUser conn
-  pure uId
+  pure (AnonUserId uId)
 
 webSocketServer' :: WebSocketServer wss c g u => wss -> PingTime -> WS.ServerApp
 webSocketServer' wss pingTime = \pending -> do
@@ -100,7 +100,7 @@ wsThreadMessageListener' wss conn idConn =
           mbUid <- processMsgLogInOut userRepo conn logMsg
           case mbUid of
             Just uId -> do
-              updateUser connRepo idConn uId
+              updateUser connRepo idConn (RegUserId uId)
               -- for debug
               connState <- lookupConnState (getConnRepo wss) idConn
               logger LgDebug $ show connState

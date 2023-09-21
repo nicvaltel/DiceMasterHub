@@ -10,7 +10,7 @@ where
 
 import qualified Network.WebSockets as WS
 import Text.Printf (printf)
-import Users.User (UserId (..))
+import Users.User (UserId (..), AnonUId)
 
 newtype ConnectionId = ConnId {unConnectionId :: Int}
   deriving (Show)
@@ -32,4 +32,4 @@ class ConnectionsRepo db where
   lookupConnState :: db -> ConnectionId -> IO (Maybe ConnectionState)
   userIdFromConnectionId :: db -> ConnectionId -> IO (Maybe UserId)
   getConnStatus :: db -> ConnectionId -> IO ConnectionStatus
-  nextAnonUserId :: db -> IO (UserId)
+  nextAnonUserId :: db -> IO AnonUId

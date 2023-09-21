@@ -10,33 +10,35 @@ import qualified Data.Text as Text
 import GameLogic.GameLogic (GameType (..))
 import qualified Network.WebSockets as WS
 import Server.Messages
-import Users.User (UserId(..), UserRepo (..), User (..))
+import Users.User (UserId(..), UserRepo (..), User (..), RegUId (..))
 import Utils.Utils
 import Network.WebSockets (Connection)
 
 
 
 
-processMsgLogInOut :: UserRepo urepo => urepo -> Connection -> LogInOut -> IO (Maybe UserId)
+processMsgLogInOut :: UserRepo urepo => urepo -> Connection -> LogInOut -> IO (Maybe RegUId)
 processMsgLogInOut repo conn (Login username password) = do
   mbUser <- findUserByUsername repo username
   case mbUser of
     Nothing -> sendWebSocketOutputMessage conn LoginErrorMsg >> pure Nothing
     Just User{userId} -> do
-      passOk <- checkPassword repo userId password
-      if passOk
-        then pure $ Just userId
-        else sendWebSocketOutputMessage conn LoginErrorMsg >> pure Nothing
+      case userId of
+        RegUserId regUid -> do
+          passOk <- checkPassword repo regUid password
+          if passOk
+            then pure $ Just regUid
+            else sendWebSocketOutputMessage conn LoginErrorMsg >> pure Nothing
+        AnonUserId _ -> do
+          sendWebSocketOutputMessage conn LoginErrorMsg
+          error "Server.MessageProcessor processMsgLogInOut: findUserByUsername returns User with AnonUserId"
 processMsgLogInOut repo conn Logout = error "processMsgLogInOut Logout not implemented"
 processMsgLogInOut repo conn (Register username password) = do
   res <- addUser repo username password
   case res of
-    usrId@(Just (RegUserId uId)) -> do 
+    usrId@(Just (RegUId uId)) -> do 
       sendWebSocketOutputMessage conn $ RegisteredSuccessfullyMsg uId
       pure usrId
-    Just (AnonUserId _) -> do 
-      sendWebSocketOutputMessage conn $ RegisterErrorMsg
-      error "Server.MessageProcessor processMsgLogInOut: Register User as AnonUser"
     Nothing -> do 
       sendWebSocketOutputMessage conn RegisterErrorMsg
       pure Nothing

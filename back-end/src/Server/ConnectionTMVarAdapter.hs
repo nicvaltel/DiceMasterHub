@@ -14,19 +14,20 @@ import Control.Concurrent.STM
 import IntMapRepo
 import qualified Network.WebSockets as WS
 import Server.Connection
-import Users.User (UserId (..))
+import Users.User 
+import Users.User (AnonUId)
 
 newtype ConnectionRepoTMVar = ConnectionRepoTMVar (TMVar ConnectionsMap)
 
 data ConnectionsMap = ConnectionsMap
   { connsIntMap :: IntMapRepo ConnectionState, -- key = ConnectionId
-    maxAnonUID :: UserId
+    maxAnonUID :: AnonUId
   }
 
 instance ConnectionsRepo ConnectionRepoTMVar where
   createConnsRepo :: IO ConnectionRepoTMVar
   createConnsRepo = do
-    tmvRepo <- newTMVarIO ConnectionsMap {connsIntMap = IntMapRepo.empty, maxAnonUID = AnonUserId 0}
+    tmvRepo <- newTMVarIO ConnectionsMap {connsIntMap = IntMapRepo.empty, maxAnonUID = AnonUId 0}
     pure (ConnectionRepoTMVar tmvRepo)
 
   addConn :: ConnectionRepoTMVar -> WS.Connection -> UserId -> ConnectionStatus -> IO ConnectionId
@@ -63,14 +64,11 @@ instance ConnectionsRepo ConnectionRepoTMVar where
       Nothing -> pure CSConnectionNotFound
       Just ConnectionState {connStatus} -> pure $ connStatus
 
-  nextAnonUserId :: ConnectionRepoTMVar -> IO UserId
+  nextAnonUserId :: ConnectionRepoTMVar -> IO AnonUId
   nextAnonUserId (ConnectionRepoTMVar tmvRepo) = atomically $ do
-    consMap@ConnectionsMap {maxAnonUID = maxUid} <- takeTMVar tmvRepo
-    case maxUid of
-      AnonUserId maxId -> do
-        putTMVar tmvRepo consMap {maxAnonUID = AnonUserId (maxId + 1)}
-        pure maxUid
-      RegUserId _ -> error "Server.ConnectionTMVarAdapter nextAnonUserId: maxAnonUID contains non RegUserId"
+    consMap@ConnectionsMap {maxAnonUID = anonUId@(AnonUId maxUid)} <- takeTMVar tmvRepo
+    putTMVar tmvRepo consMap {maxAnonUID = AnonUId (maxUid + 1)}
+    pure anonUId
 
 addConnToState :: ConnectionsMap -> WS.Connection -> UserId -> ConnectionStatus -> (ConnectionsMap, ConnectionId)
 addConnToState ConnectionsMap {connsIntMap, maxAnonUID} conn userId status =

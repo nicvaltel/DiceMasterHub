@@ -4,7 +4,13 @@ module Users.User where
 
 import Data.Text (Text)
 
-data UserId = RegUserId Int | AnonUserId Int
+newtype RegUId = RegUId Int
+  deriving (Show, Eq, Ord)
+
+newtype AnonUId = AnonUId Int
+  deriving (Show, Eq, Ord)
+
+data UserId = RegUserId RegUId | AnonUserId AnonUId
   deriving (Show, Eq, Ord)
 
 data User = User {userId :: UserId, userName :: Username}
@@ -18,9 +24,9 @@ type Username = Text
 type Password = Text
 
 class UserRepo db where
-  findUserById :: db -> UserId -> IO (Maybe User)
+  findUserById :: db -> RegUId -> IO (Maybe User)
   findUserByUsername :: db -> Username -> IO (Maybe User)
-  addUser :: db -> Username -> Password -> IO (Maybe UserId) -- TODO save hashed password
+  addUser :: db -> Username -> Password -> IO (Maybe RegUId) -- TODO save hashed password
   updateUser :: db -> User -> IO Bool
-  deleteUser :: db -> UserId -> IO Bool
-  checkPassword :: db -> UserId -> Password -> IO Bool -- TODO save hashed password
+  deleteUser :: db -> RegUId -> IO Bool
+  checkPassword :: db -> RegUId -> Password -> IO Bool -- TODO save hashed password
