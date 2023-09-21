@@ -23,7 +23,7 @@ import Server.MessageProcessor
 import Server.Messages
 import Server.WebSocketServerClass
 import Unsafe.Coerce (unsafeCoerce)
-import Users.User (RegStatus (..), UserId (..), UserRepo)
+import Users.User (UserId (..), UserRepo)
 import Users.UserPostgresAdapter (UserRepoDB)
 import Utils.Utils (LgSeverity (LgError, LgInfo), logger)
 

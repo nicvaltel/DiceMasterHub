@@ -10,7 +10,7 @@ import qualified Data.Text as Text
 import GameLogic.GameLogic (GameType (..))
 import qualified Network.WebSockets as WS
 import Server.Messages
-import Users.User (UserId(..), UserRepo (..), User (..), RegUId (..))
+import Users.User (UserId(..), UserRepo (..), User (..), RegUId (..), RegUser (..))
 import Utils.Utils
 import Network.WebSockets (Connection)
 
@@ -19,19 +19,14 @@ import Network.WebSockets (Connection)
 
 processMsgLogInOut :: UserRepo urepo => urepo -> Connection -> LogInOut -> IO (Maybe RegUId)
 processMsgLogInOut repo conn (Login username password) = do
-  mbUser <- findUserByUsername repo username
-  case mbUser of
+  mbRegUser <- findUserByUsername repo username
+  case mbRegUser of
     Nothing -> sendWebSocketOutputMessage conn LoginErrorMsg >> pure Nothing
-    Just User{userId} -> do
-      case userId of
-        RegUserId regUid -> do
-          passOk <- checkPassword repo regUid password
+    Just RegUser{regUId} -> do
+          passOk <- checkPassword repo regUId password
           if passOk
-            then pure $ Just regUid
+            then pure $ Just regUId
             else sendWebSocketOutputMessage conn LoginErrorMsg >> pure Nothing
-        AnonUserId _ -> do
-          sendWebSocketOutputMessage conn LoginErrorMsg
-          error "Server.MessageProcessor processMsgLogInOut: findUserByUsername returns User with AnonUserId"
 processMsgLogInOut repo conn Logout = error "processMsgLogInOut Logout not implemented"
 processMsgLogInOut repo conn (Register username password) = do
   res <- addUser repo username password

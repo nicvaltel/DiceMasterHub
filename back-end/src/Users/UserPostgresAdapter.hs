@@ -14,16 +14,16 @@ import Users.User
 newtype UserRepoDB = UserRepoDB {poolConn :: Pool Connection}
 
 instance UserRepo UserRepoDB where
-  findUserById :: UserRepoDB -> RegUId -> IO (Maybe User)
+  findUserById :: UserRepoDB -> RegUId -> IO (Maybe RegUser)
   findUserById (UserRepoDB poolConn) regUId = findUserById' poolConn regUId
 
-  findUserByUsername :: UserRepoDB -> Username -> IO (Maybe User)
+  findUserByUsername :: UserRepoDB -> Username -> IO (Maybe RegUser)
   findUserByUsername (UserRepoDB poolConn) username = findUserByUsername' poolConn username
 
   addUser :: UserRepoDB -> Username -> Password -> IO (Maybe RegUId)
   addUser (UserRepoDB poolConn) username passwd = addUser' poolConn username passwd
 
-  updateUser :: UserRepoDB -> User -> IO Bool
+  updateUser :: UserRepoDB -> RegUser -> IO Bool
   updateUser (UserRepoDB poolConn) newUser = updateUser' poolConn newUser
 
   deleteUser :: UserRepoDB -> RegUId -> IO Bool
@@ -32,20 +32,20 @@ instance UserRepo UserRepoDB where
   checkPassword :: UserRepoDB -> RegUId -> Password -> IO Bool
   checkPassword (UserRepoDB poolConn) uId passwd = checkPassword' poolConn uId passwd
 
-findUserById' :: Pool Connection -> RegUId -> IO (Maybe User)
+findUserById' :: Pool Connection -> RegUId -> IO (Maybe RegUser)
 findUserById' poolConn regUId@(RegUId uId) = do
   result :: [Only Text] <- PG.withDBConn poolConn $ \conn -> query conn queryStr (Only uId)
   case result of
-    [Only userName] -> pure $ Just User {userId = RegUserId regUId, userName}
+    [Only userName] -> pure $ Just RegUser {regUId, regUserData = UserData{userName}}
     _ -> pure Nothing
   where
     queryStr = "SELECT username FROM dice_master_hub.users where id = ?"
 
-findUserByUsername' :: Pool Connection -> Username -> IO (Maybe User)
+findUserByUsername' :: Pool Connection -> Username -> IO (Maybe RegUser)
 findUserByUsername' poolConn userName = do
   result :: [Only Int] <- PG.withDBConn poolConn $ \conn -> query conn queryStr (Only userName)
   case result of
-    [Only uId] -> pure $ Just User {userId = RegUserId (RegUId uId), userName}
+    [Only uId] -> pure $ Just RegUser {regUId = RegUId uId, regUserData = UserData{userName}}
     _ -> pure Nothing
   where
     queryStr = "SELECT id FROM dice_master_hub.users where username = ?"
@@ -71,5 +71,5 @@ checkPassword' poolConn (RegUId uId) passwd = do
 deleteUser' :: Pool Connection -> RegUId -> IO Bool
 deleteUser' = undefined
 
-updateUser' :: Pool Connection -> User -> IO Bool
+updateUser' :: Pool Connection -> RegUser -> IO Bool
 updateUser' = undefined
