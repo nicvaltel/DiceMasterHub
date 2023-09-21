@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE DataKinds #-}
 
 module GameRoom.GameRoomTMVarAdapter
   ( GameRoomRepoTMVar (..),
@@ -14,22 +15,25 @@ import GameLogic.GameLogic
     newGameBoardState,
   )
 import GameRoom.GameRoom
-import Users.User (UserId (..), AnyUserId)
+import Users.User 
 
-newtype GameRoomRepoTMVar = GameRoomRepoTMVar (TMVar RoomsMap)
+newtype GameRoomRepoTMVar = GameRoomRepoTMVar (TMVar NotStartedRoomsMap, TMVar InProgressRoomsMap)
 
 instance GameRoomRepo GameRoomRepoTMVar where
   createGameRoomRepo :: IO GameRoomRepoTMVar
-  createGameRoomRepo = GameRoomRepoTMVar <$> newTMVarIO (Map.empty :: Map RoomId GameRoom)
+  createGameRoomRepo = do
+    notStarted <- newTMVarIO (Map.empty :: Map RoomId (GameRoom 'GameNotStarted))
+    inProgress <- newTMVarIO (Map.empty :: Map RoomId (GameRoom 'GameInProgress))
+    pure $ GameRoomRepoTMVar (notStarted, inProgress)
 
-  createGameRoom :: GameRoomRepoTMVar -> AnyUserId -> GameType -> IO CreatedGameRoom
-  createGameRoom (GameRoomRepoTMVar tmvRepo) userId gameType = do
-    let newRoom = newGameRoom userId gameType (newGameBoardState gameType)
+  createGameRoom ::  GameRoomRepoTMVar -> AnyUserId -> GameType -> IO CreatedGameRoomId
+  createGameRoom (GameRoomRepoTMVar (tmvRepo, _)) anyUserId gameType = do
+    let newRoom = newGameRoom anyUserId gameType (newGameBoardState gameType)
     atomically $ do
       repo <- takeTMVar tmvRepo
-      case Map.lookup userId repo of
+      case Map.lookup anyUserId repo of
         Nothing -> do
-          let newRepo = Map.insert userId newRoom repo
+          let newRepo = Map.insert anyUserId newRoom repo
           putTMVar tmvRepo newRepo
-          pure (NewCreatedRoom userId)
-        Just _ -> pure (AlreadyActiveRoom userId) -- gameroom for current user is already active
+          pure (NewCreatedRoom anyUserId)
+        Just _ -> pure (AlreadyActiveRoom anyUserId) -- gameroom for current user is already active

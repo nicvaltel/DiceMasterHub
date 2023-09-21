@@ -1,11 +1,14 @@
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE DataKinds #-}
 module GameRoom.GameRoom
   ( GameRoomRepo (..),
     RoomId,
     GameRoomStatus (..),
     GameRoomMessage,
-    RoomsMap,
+    NotStartedRoomsMap,
+    InProgressRoomsMap,
     GameRoom (..),
-    CreatedGameRoom (..),
+    CreatedGameRoomId (..),
     newGameRoom,
   )
 where
@@ -23,38 +26,44 @@ import Users.User
 
 type RoomId = AnyUserId -- TODO chane RoomId from UserId to other
 
-data GameRoomStatus = RoomWaitingForParticipant | GameInProgress | GameFinished GameResult
+data GameRoomStatus = GameNotStarted | GameInProgress | GameFinished
 
 data GameRoomMessage
 
-type RoomsMap = Map AnyUserId GameRoom
+type NotStartedRoomsMap = Map RoomId (GameRoom 'GameNotStarted)
 
-data CreatedGameRoom = NewCreatedRoom AnyUserId | AlreadyActiveRoom AnyUserId
+type InProgressRoomsMap = Map RoomId (GameRoom 'GameInProgress)
+
+data CreatedGameRoomId = NewCreatedRoom RoomId | AlreadyActiveRoom RoomId -- instead of Either
   deriving (Show)
 
-data GameRoom = GameRoom
+-- data ActiveGameRoom = GameNotStartedRoom (GameRoom 'GameNotStarted) | GameInProgressRoom (GameRoom 'GameInProgress)
+
+data GameRoom (u :: GameRoomStatus) = GameRoom
   { roomGameType :: GameType,
     roomStatus :: GameRoomStatus,
     roomUsers :: [AnyUserId],
     roomChat :: [(AnyUserId, Text)],
     roomGameActions :: [(AnyUserId, GameMove, Timestamp)],
     roomRoomActions :: [(AnyUserId, GameMove, Timestamp)],
-    roomBoardState :: GameBoardState
+    roomBoardState :: GameBoardState,
+    gameResult :: Maybe GameResult
   }
 
-newGameRoom :: AnyUserId -> GameType -> GameBoardState -> GameRoom
-newGameRoom userId gameType gameBoardState =
+newGameRoom :: AnyUserId -> GameType -> GameBoardState -> GameRoom 'GameNotStarted
+newGameRoom anyUserId gameType gameBoardState =
   GameRoom
     { roomGameType = gameType,
-      roomStatus = RoomWaitingForParticipant,
-      roomUsers = [userId],
+      roomStatus = GameNotStarted,
+      roomUsers = [anyUserId],
       roomChat = [],
       roomGameActions = [],
       roomRoomActions = [],
-      roomBoardState = gameBoardState
+      roomBoardState = gameBoardState,
+      gameResult = Nothing
     }
 
 class GameRoomRepo db where
   createGameRoomRepo :: IO db
-  createGameRoom :: db -> AnyUserId -> GameType -> IO CreatedGameRoom
-  findUsersActiveRoom :: db -> IO (Maybe AnyUserId)
+  createGameRoom :: db -> AnyUserId -> GameType -> IO CreatedGameRoomId
+  findUsersActiveRoom :: db -> IO [AnyUserId]

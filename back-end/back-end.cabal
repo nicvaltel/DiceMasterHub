@@ -49,7 +49,6 @@ library
       Server.WebSocketServerClass
       Types
       Users.User
-      Users.User2
       Users.UserPostgresAdapter
       Utils.Utils
   other-modules:

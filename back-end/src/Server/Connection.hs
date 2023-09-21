@@ -24,7 +24,9 @@ data ConnectionState = ConnectionState {connStateConnection :: WS.Connection, co
 
 instance Show ConnectionState where
   show ConnectionState {connStateUserId, connStatus} =
-    printf "ConnectionState{WS.Connection, connStateUserId = %s , connStatus = %s}" (show connStateUserId) (show connStatus)
+    case connStateUserId of 
+      Left uId -> printf "ConnectionState{WS.Connection, connStateUserId = Anon %s , connStatus = %s}" (show uId) (show connStatus)
+      Right uId -> printf "ConnectionState{WS.Connection, connStateUserId = Registered %s , connStatus = %s}" (show uId) (show connStatus)
 
 class ConnectionsRepo db where
   createConnsRepo :: IO (db)
