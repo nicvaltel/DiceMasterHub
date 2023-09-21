@@ -16,7 +16,7 @@ module Server.WebSocketServerClass
   )
 where
 
-import Control.Exception (finally, SomeException, catch)
+import Control.Exception (SomeException, catch, finally)
 import Control.Monad (forever)
 import qualified Data.Text as Text
 import GameRoom.GameRoom (GameRoomRepo (..))
@@ -24,7 +24,7 @@ import qualified Network.WebSockets as WS
 import Server.Connection
 import Server.MessageProcessor
 import Server.Messages
-import Users.User (RegStatus (..), UserId (..), UserRepo)
+import Users.User (UserId (..), UserRepo)
 import Utils.Utils (LgSeverity (..), logger)
 
 type PingTime = Int
@@ -40,7 +40,7 @@ class (ConnectionsRepo crepo, GameRoomRepo grrepo, UserRepo urepo) => WebSocketS
   wsThreadMessageListener :: wss -> WS.Connection -> ConnectionId -> IO ()
   wsThreadMessageListener = wsThreadMessageListener'
 
-checkForExistingUser :: WebSocketServer wss c g u => wss -> WS.Connection -> IO (UserId 'Anonim)
+checkForExistingUser :: WebSocketServer wss c g u => wss -> WS.Connection -> IO UserId
 checkForExistingUser wss conn = do
   uId <- nextAnonUserId (getConnRepo wss)
   askForExistingUser conn
@@ -48,7 +48,6 @@ checkForExistingUser wss conn = do
 
 webSocketServer' :: WebSocketServer wss c g u => wss -> PingTime -> WS.ServerApp
 webSocketServer' wss pingTime = \pending -> do
-  
   conn <- WS.acceptRequest pending
   userId <- checkForExistingUser wss conn
   idConn <- addConn (getConnRepo wss) conn userId CSNormal
@@ -61,13 +60,13 @@ webSocketServer' wss pingTime = \pending -> do
 
   WS.withPingThread conn pingTime (pure ()) $ do
     catch
-        (wsThreadMessageListener wss conn idConn)
-        (\(e :: SomeException) -> (putStrLn $ "WebSocket thread error: " ++ show e) >> disconnect idConn)
+      (wsThreadMessageListener wss conn idConn)
+      (\(e :: SomeException) -> (putStrLn $ "WebSocket thread error: " ++ show e) >> disconnect idConn)
+  where
     -- finally
     --   (wsThreadMessageListener wss conn idConn)
     --   (disconnect idConn)
 
-  where
     disconnect idConn = do
       removeConn (getConnRepo wss) idConn
       logger LgInfo $ show idConn ++ " disconnected"
@@ -82,7 +81,6 @@ wsThreadMessageListener' wss conn idConn =
     connState <- lookupConnState (getConnRepo wss) idConn
     logger LgDebug $ show connState
     -- for debug
-
 
     connStatus <- getConnStatus connRepo idConn -- if connection status is not found, there will be CSConnectionNotFound
     case connStatus of -- FSM switcher
@@ -106,7 +104,7 @@ wsThreadMessageListener' wss conn idConn =
               -- for debug
               connState <- lookupConnState (getConnRepo wss) idConn
               logger LgDebug $ show connState
-              -- for debug
+            -- for debug
             Nothing -> pure ()
         InitJoinRoomMsg ijrMsg -> do
           mbUserId <- userIdFromConnectionId connRepo idConn
@@ -116,4 +114,3 @@ wsThreadMessageListener' wss conn idConn =
         GameActionMsg gameActMsg -> processGameActionMsg gameActMsg
         AnswerExistingUserMsg uId -> processUpdateExistingUser wss idConn uId
         IncorrectMsg txt -> processIncorrectMsg conn txt
-        

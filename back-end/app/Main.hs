@@ -10,7 +10,6 @@ import qualified RunApp
 import Configuration.Dotenv (parseFile)
 import Data.Maybe (fromJust)
 import Text.Printf (printf)
-import Users.User2 (fff)
 
 
 main :: IO ()

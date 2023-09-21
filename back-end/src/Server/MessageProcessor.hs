@@ -10,14 +10,14 @@ import qualified Data.Text as Text
 import GameLogic.GameLogic (GameType (..))
 import qualified Network.WebSockets as WS
 import Server.Messages
-import Users.User (UserId(..), UserRepo (..), RegStatus (..), User (..))
+import Users.User (UserId(..), UserRepo (..), User (..))
 import Utils.Utils
 import Network.WebSockets (Connection)
 
 
 
 
-processMsgLogInOut :: UserRepo urepo => urepo -> Connection -> LogInOut -> IO (Maybe (UserId 'Registered))
+processMsgLogInOut :: UserRepo urepo => urepo -> Connection -> LogInOut -> IO (Maybe UserId)
 processMsgLogInOut repo conn (Login username password) = do
   mbUser <- findUserByUsername repo username
   case mbUser of
@@ -31,15 +31,18 @@ processMsgLogInOut repo conn Logout = error "processMsgLogInOut Logout not imple
 processMsgLogInOut repo conn (Register username password) = do
   res <- addUser repo username password
   case res of
-    usrId@(Just (UserId uId)) -> do 
+    usrId@(Just (RegUserId uId)) -> do 
       sendWebSocketOutputMessage conn $ RegisteredSuccessfullyMsg uId
       pure usrId
+    Just (AnonUserId _) -> do 
+      sendWebSocketOutputMessage conn $ RegisterErrorMsg
+      error "Server.MessageProcessor processMsgLogInOut: Register User as AnonUser"
     Nothing -> do 
       sendWebSocketOutputMessage conn RegisterErrorMsg
       pure Nothing
 
 
-processInitJoinRoom ::  UserId r -> InitJoinRoom -> IO ()
+processInitJoinRoom ::  UserId -> InitJoinRoom -> IO ()
 processInitJoinRoom userId (InitGameRoom params) = do
   pure ()
   -- ConnThreadReader _ mvarRooms <- ask

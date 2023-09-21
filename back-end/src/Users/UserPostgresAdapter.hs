@@ -2,41 +2,39 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE DataKinds #-}
 
-module Users.UserPostgresAdapter(UserRepoDB(..)) where
+module Users.UserPostgresAdapter (UserRepoDB (..)) where
 
 import Data.Pool (Pool)
 import Data.Text (Text)
-import Database.PostgreSQL.Simple (Connection, Only (Only), execute, formatQuery, query)
+import Database.PostgreSQL.Simple (Connection, Only (Only), query)
 import qualified PostgreSQLConnector as PG
 import Users.User
 
 newtype UserRepoDB = UserRepoDB {poolConn :: Pool Connection}
 
 instance UserRepo UserRepoDB where
-  findUserById :: UserRepoDB -> UserId 'Registered -> IO (Maybe (User 'Registered))
+  findUserById :: UserRepoDB -> UserId -> IO (Maybe User)
   findUserById (UserRepoDB poolConn) uId = findUserById' poolConn uId
 
-  findUserByUsername :: UserRepoDB -> Username -> IO (Maybe (User 'Registered))
+  findUserByUsername :: UserRepoDB -> Username -> IO (Maybe User)
   findUserByUsername (UserRepoDB poolConn) username = findUserByUsername' poolConn username
 
-  addUser :: UserRepoDB -> Username -> Password -> IO (Maybe (UserId r))
+  addUser :: UserRepoDB -> Username -> Password -> IO (Maybe UserId)
   addUser (UserRepoDB poolConn) username passwd = addUser' poolConn username passwd
 
-  updateUser :: UserRepoDB -> User r-> IO Bool
+  updateUser :: UserRepoDB -> User -> IO Bool
   updateUser (UserRepoDB poolConn) newUser = updateUser' poolConn newUser
 
-  deleteUser :: UserRepoDB -> UserId r -> IO Bool
+  deleteUser :: UserRepoDB -> UserId -> IO Bool
   deleteUser (UserRepoDB poolConn) uId = deleteUser' poolConn uId
 
-  checkPassword :: UserRepoDB -> UserId r-> Password -> IO Bool
+  checkPassword :: UserRepoDB -> UserId -> Password -> IO Bool
   checkPassword (UserRepoDB poolConn) uId passwd = checkPassword' poolConn uId passwd
 
-
-
-findUserById' :: Pool Connection -> UserId 'Registered -> IO (Maybe (User 'Registered))
-findUserById' poolConn userId@(UserId uId) = do
+findUserById' :: Pool Connection -> UserId -> IO (Maybe User)
+findUserById' _ (AnonUserId _) = pure Nothing
+findUserById' poolConn userId@(RegUserId uId) = do
   result :: [Only Text] <- PG.withDBConn poolConn $ \conn -> query conn queryStr (Only uId)
   case result of
     [Only userName] -> pure $ Just User {userId, userName}
@@ -44,26 +42,27 @@ findUserById' poolConn userId@(UserId uId) = do
   where
     queryStr = "SELECT username FROM dice_master_hub.users where id = ?"
 
-findUserByUsername' :: Pool Connection -> Username -> IO (Maybe (User 'Registered))
+findUserByUsername' :: Pool Connection -> Username -> IO (Maybe User)
 findUserByUsername' poolConn userName = do
   result :: [Only Int] <- PG.withDBConn poolConn $ \conn -> query conn queryStr (Only userName)
   case result of
-    [Only uId] -> pure $ Just User {userId = UserId uId, userName}
+    [Only uId] -> pure $ Just User {userId = RegUserId uId, userName}
     _ -> pure Nothing
   where
     queryStr = "SELECT id FROM dice_master_hub.users where username = ?"
 
-addUser' :: Pool Connection -> Username -> Password -> IO (Maybe (UserId r))
+addUser' :: Pool Connection -> Username -> Password -> IO (Maybe UserId)
 addUser' poolConn userName passwd = do
   res :: [Only Int] <- PG.withDBConn poolConn $ \conn -> query conn queryStr (userName, passwd)
   case res of
-    [Only uId] -> pure $ Just (UserId uId)
+    [Only uId] -> pure $ Just (RegUserId uId)
     _ -> pure Nothing
   where
     queryStr = "INSERT INTO dice_master_hub.users (username, passwd, created) VALUES(?, ?, (now() AT TIME ZONE 'utc'::text)) returning id;"
 
-checkPassword' :: Pool Connection -> UserId r -> Password -> IO Bool
-checkPassword' poolConn (UserId uId) passwd = do
+checkPassword' :: Pool Connection -> UserId -> Password -> IO Bool
+checkPassword' _ (AnonUserId _) _ = pure False
+checkPassword' poolConn (RegUserId uId) passwd = do
   res :: [Only Text] <- PG.withDBConn poolConn $ \conn -> query conn queryStr (Only uId)
   case res of
     [Only pwd] -> pure $ passwd == pwd
@@ -71,8 +70,8 @@ checkPassword' poolConn (UserId uId) passwd = do
   where
     queryStr = "SELECT username FROM dice_master_hub.users where id = ?"
 
-deleteUser' :: Pool Connection -> UserId r -> IO Bool
+deleteUser' :: Pool Connection -> UserId -> IO Bool
 deleteUser' = undefined
 
-updateUser' :: Pool Connection -> User r -> IO Bool
+updateUser' :: Pool Connection -> User -> IO Bool
 updateUser' = undefined

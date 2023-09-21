@@ -1,12 +1,7 @@
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE InstanceSigs #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE DataKinds #-}
 
-module Server.ConnectionTMVarAdapter (ConnectionRepoTMVar(..)) where
+module Server.ConnectionTMVarAdapter (ConnectionRepoTMVar (..)) where
 
 import Control.Concurrent.STM
   ( TMVar,
@@ -16,39 +11,36 @@ import Control.Concurrent.STM
     readTMVar,
     takeTMVar,
   )
+import IntMapRepo
 import qualified Network.WebSockets as WS
 import Server.Connection
-import Users.User (UserId (..), RegStatus(..))
-import IntMapRepo
-import Utils.Utils (LgSeverity(LgCritical), logger)
-import Control.Monad.IO.Class (liftIO)
-import GHC.Conc (unsafeIOToSTM)
+import Users.User (UserId (..))
 
 newtype ConnectionRepoTMVar = ConnectionRepoTMVar (TMVar ConnectionsMap)
 
-data ConnectionsMap = ConnectionsMap {
-  connsIntMap :: IntMapRepo ConnectionState, -- key = ConnectionId
-  maxAnonUID :: UserId 'Anonim
+data ConnectionsMap = ConnectionsMap
+  { connsIntMap :: IntMapRepo ConnectionState, -- key = ConnectionId
+    maxAnonUID :: UserId
   }
 
 instance ConnectionsRepo ConnectionRepoTMVar where
   createConnsRepo :: IO ConnectionRepoTMVar
   createConnsRepo = do
-    tmvRepo <- newTMVarIO ConnectionsMap{connsIntMap = IntMapRepo.empty, maxAnonUID = UserId 0}
+    tmvRepo <- newTMVarIO ConnectionsMap {connsIntMap = IntMapRepo.empty, maxAnonUID = AnonUserId 0}
     pure (ConnectionRepoTMVar tmvRepo)
 
-  addConn :: ConnectionRepoTMVar -> WS.Connection -> UserId r -> ConnectionStatus -> IO ConnectionId
+  addConn :: ConnectionRepoTMVar -> WS.Connection -> UserId -> ConnectionStatus -> IO ConnectionId
   addConn (ConnectionRepoTMVar tmvRepo) conn userId state = atomically $ do
     repo <- takeTMVar tmvRepo
     let (newWssState, idConn) = addConnToState repo conn userId state
     putTMVar tmvRepo newWssState
     pure idConn
 
-  updateUser :: ConnectionRepoTMVar -> ConnectionId -> UserId r -> IO ()
+  updateUser :: ConnectionRepoTMVar -> ConnectionId -> UserId -> IO ()
   updateUser (ConnectionRepoTMVar tmvRepo) connId userId = atomically $ do
-      repo <- takeTMVar tmvRepo
-      let newRepo = updateUserInConnState repo connId userId
-      putTMVar tmvRepo newRepo
+    repo <- takeTMVar tmvRepo
+    let newRepo = updateUserInConnState repo connId userId
+    putTMVar tmvRepo newRepo
 
   removeConn :: ConnectionRepoTMVar -> ConnectionId -> IO ()
   removeConn (ConnectionRepoTMVar tmvRepo) idConn = atomically $ do
@@ -57,10 +49,12 @@ instance ConnectionsRepo ConnectionRepoTMVar where
     putTMVar tmvRepo newWssState
 
   lookupConnState :: ConnectionRepoTMVar -> ConnectionId -> IO (Maybe ConnectionState)
-  lookupConnState (ConnectionRepoTMVar tmvRepo) (ConnId idConn) = atomically $ (IntMapRepo.lookup idConn . connsIntMap) <$> readTMVar tmvRepo
+  lookupConnState (ConnectionRepoTMVar tmvRepo) (ConnId idConn) = do
+    ConnectionsMap {connsIntMap} <- atomically $ readTMVar tmvRepo
+    pure (IntMapRepo.lookup idConn connsIntMap)
 
-  userIdFromConnectionId :: ConnectionRepoTMVar -> ConnectionId -> IO (Maybe (UserId r))
-  userIdFromConnectionId connRepo idConn = (getConnStateUserId <$>) <$> lookupConnState connRepo idConn
+  userIdFromConnectionId :: ConnectionRepoTMVar -> ConnectionId -> IO (Maybe UserId)
+  userIdFromConnectionId connRepo idConn = (connStateUserId <$>) <$> lookupConnState connRepo idConn
 
   getConnStatus :: ConnectionRepoTMVar -> ConnectionId -> IO ConnectionStatus
   getConnStatus tmvRepo idConn = do
@@ -69,29 +63,25 @@ instance ConnectionsRepo ConnectionRepoTMVar where
       Nothing -> pure CSConnectionNotFound
       Just ConnectionState {connStatus} -> pure $ connStatus
 
-  nextAnonUserId :: ConnectionRepoTMVar -> IO (UserId r)
+  nextAnonUserId :: ConnectionRepoTMVar -> IO UserId
   nextAnonUserId (ConnectionRepoTMVar tmvRepo) = atomically $ do
-    consMap@ConnectionsMap{maxAnonUID = UserId maxId} <- takeTMVar tmvRepo
-    putTMVar tmvRepo consMap{maxAnonUID = UserId (maxId + 1)}
-    pure (UserId maxId)
+    consMap@ConnectionsMap {maxAnonUID = maxUid} <- takeTMVar tmvRepo
+    case maxUid of
+      AnonUserId maxId -> do
+        putTMVar tmvRepo consMap {maxAnonUID = AnonUserId (maxId + 1)}
+        pure maxUid
+      RegUserId _ -> error "Server.ConnectionTMVarAdapter nextAnonUserId: maxAnonUID contains non RegUserId"
 
-
-
-addConnToState :: ConnectionsMap -> WS.Connection -> UserId r -> ConnectionStatus -> (ConnectionsMap, ConnectionId)
-addConnToState ConnectionsMap{connsIntMap,maxAnonUID} conn userId status =
+addConnToState :: ConnectionsMap -> WS.Connection -> UserId -> ConnectionStatus -> (ConnectionsMap, ConnectionId)
+addConnToState ConnectionsMap {connsIntMap, maxAnonUID} conn userId status =
   let connState = ConnectionState {connStateConnection = conn, connStateUserId = userId, connStatus = status}
       (newRepo, idConn) = IntMapRepo.append connState connsIntMap
-   in (ConnectionsMap{ connsIntMap = newRepo,maxAnonUID} , ConnId idConn)
+   in (ConnectionsMap {connsIntMap = newRepo, maxAnonUID}, ConnId idConn)
 
 removeConnFromState :: ConnectionsMap -> ConnectionId -> ConnectionsMap
-removeConnFromState consMap (ConnId idConn) = 
-  consMap{connsIntMap = IntMapRepo.delete idConn (connsIntMap consMap)}
+removeConnFromState consMap (ConnId idConn) =
+  consMap {connsIntMap = IntMapRepo.delete idConn (connsIntMap consMap)}
 
-updateUserInConnState :: ConnectionsMap -> ConnectionId -> UserId r -> ConnectionsMap
-updateUserInConnState consMap@ConnectionsMap{connsIntMap} (ConnId connId) userId = undefined
-  -- let newConnsIntMap = IntMapRepo.modify (\cs -> cs{connStateUserId = userId}) connId connsIntMap
-  -- in {connsIntMap = newConnsIntMap}
-
-  -- error "updateUserInConnState not implemented"
-
-  -- consMap{ connsIntMap = IntMapRepo.modify (\cs -> cs {connStateUserId = userId}) connId (connsIntMap consMap) }
+updateUserInConnState :: ConnectionsMap -> ConnectionId -> UserId -> ConnectionsMap
+updateUserInConnState consMap@ConnectionsMap {connsIntMap} (ConnId connId) userId =
+  consMap {connsIntMap = IntMapRepo.modify (\cs -> cs {connStateUserId = userId}) connId connsIntMap}

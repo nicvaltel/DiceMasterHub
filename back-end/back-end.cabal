@@ -29,6 +29,8 @@ library
       GameRoom.GameRoom
       GameRoom.GameRoomTMVarAdapter
       HSPG.DataKindsPg
+      HSPG.TypeToString
+      HSPG.TypeToString2
       IntMapRepo
       Pentest.GameMoveProcessor
       Pentest.RunGames1
@@ -47,7 +49,6 @@ library
       Server.WebSocketServerClass
       Types
       Users.User
-      Users.User2
       Users.UserPostgresAdapter
       Utils.Utils
   other-modules:

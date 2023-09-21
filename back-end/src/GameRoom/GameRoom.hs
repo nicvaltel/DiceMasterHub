@@ -1,9 +1,3 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE InstanceSigs #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE DataKinds #-}
-
 module GameRoom.GameRoom
   ( GameRoomRepo (..),
     RoomId,
@@ -11,11 +5,12 @@ module GameRoom.GameRoom
     GameRoomMessage,
     RoomsMap,
     GameRoom (..),
+    CreatedGameRoom (..),
     newGameRoom,
   )
 where
 
-import Data.IntMap (IntMap)
+import Data.Map (Map)
 import Data.Text (Text)
 import GameLogic.GameLogic
   ( GameBoardState,
@@ -24,27 +19,30 @@ import GameLogic.GameLogic
     GameType,
   )
 import Types (Timestamp)
-import Users.User (UserId (..), RegStatus)
+import Users.User (UserId (..))
 
-type RoomId = Int -- UserId
+type RoomId = UserId -- TODO chane RoomId from UserId to other
 
 data GameRoomStatus = RoomWaitingForParticipant | GameInProgress | GameFinished GameResult
 
 data GameRoomMessage
 
-type RoomsMap = IntMap GameRoom
+type RoomsMap = Map UserId GameRoom
 
-data GameRoom = forall (r :: RegStatus). GameRoom
+data CreatedGameRoom = NewCreatedRoom RoomId | AlreadyActiveRoom RoomId
+  deriving (Show)
+
+data GameRoom = GameRoom
   { roomGameType :: GameType,
     roomStatus :: GameRoomStatus,
-    roomUsers :: [UserId r],
-    roomChat :: [(UserId r, Text)],
-    roomGameActions :: [(UserId r, GameMove, Timestamp)],
-    roomRoomActions :: [(UserId r, GameMove, Timestamp)],
+    roomUsers :: [UserId],
+    roomChat :: [(UserId, Text)],
+    roomGameActions :: [(UserId, GameMove, Timestamp)],
+    roomRoomActions :: [(UserId, GameMove, Timestamp)],
     roomBoardState :: GameBoardState
   }
 
-newGameRoom :: UserId r -> GameType -> GameBoardState -> GameRoom
+newGameRoom :: UserId -> GameType -> GameBoardState -> GameRoom
 newGameRoom userId gameType gameBoardState =
   GameRoom
     { roomGameType = gameType,
@@ -58,5 +56,5 @@ newGameRoom userId gameType gameBoardState =
 
 class GameRoomRepo db where
   createGameRoomRepo :: IO db
-  createGameRoom :: db -> UserId r -> GameType -> IO (Either (UserId r) (UserId r)) -- if Left then -- gameroom for current user is already active
-  findUsersActiveRoom :: db -> IO (Maybe (UserId r))
+  createGameRoom :: db -> UserId -> GameType -> IO CreatedGameRoom
+  findUsersActiveRoom :: db -> IO (Maybe UserId)

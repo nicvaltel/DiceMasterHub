@@ -2,14 +2,13 @@
 {-# LANGUAGE InstanceSigs #-}
 
 module GameRoom.GameRoomTMVarAdapter
-  ( GameRoomRepoTMVar(..),
+  ( GameRoomRepoTMVar (..),
   )
 where
 
-import Control.Concurrent.STM (TMVar, atomically, newTMVarIO, putTMVar, readTMVar, takeTMVar)
-import Control.Monad.Reader (MonadIO (liftIO))
-import Data.IntMap (IntMap)
-import qualified Data.IntMap as IntMap
+import Control.Concurrent.STM (TMVar, atomically, newTMVarIO, putTMVar, takeTMVar)
+import Data.Map (Map)
+import qualified Data.Map.Strict as Map
 import GameLogic.GameLogic
   ( GameType,
     newGameBoardState,
@@ -21,30 +20,16 @@ newtype GameRoomRepoTMVar = GameRoomRepoTMVar (TMVar RoomsMap)
 
 instance GameRoomRepo GameRoomRepoTMVar where
   createGameRoomRepo :: IO GameRoomRepoTMVar
-  createGameRoomRepo = GameRoomRepoTMVar <$> newTMVarIO (IntMap.empty :: IntMap GameRoom)
+  createGameRoomRepo = GameRoomRepoTMVar <$> newTMVarIO (Map.empty :: Map RoomId GameRoom)
 
-  createGameRoom :: GameRoomRepoTMVar -> UserId r -> GameType -> IO (Either (UserId r) (UserId r))
+  createGameRoom :: GameRoomRepoTMVar -> UserId -> GameType -> IO CreatedGameRoom
   createGameRoom (GameRoomRepoTMVar tmvRepo) userId gameType = do
     let newRoom = newGameRoom userId gameType (newGameBoardState gameType)
-    liftIO $ atomically $ do
+    atomically $ do
       repo <- takeTMVar tmvRepo
-      case IntMap.lookup (unUserId userId) repo of
+      case Map.lookup userId repo of
         Nothing -> do
-          let newRepo = IntMap.insert (unUserId userId) newRoom repo
+          let newRepo = Map.insert userId newRoom repo
           putTMVar tmvRepo newRepo
-          pure (Right userId)
-        Just _ -> pure (Left userId) -- gameroom for current user is already active
-
--- instance GameRoomRepo (MVar RoomsMap) where
---   createGameRoomRepo :: IO (MVar RoomsMap)
---   createGameRoomRepo = newMVar IntMap.empty
-
---   createGameRoom :: MVar RoomsMap -> UserId -> GameType ->  IO (Either UserId UserId)
---   createGameRoom mvRepo userId gameType  = do
---     let newRoom = newGameRoom userId gameType (newGameBoardState gameType)
---     liftIO $ modifyMVarMasked mvRepo $ \repo ->
---       case IntMap.lookup (unUserId userId) repo of
---         Nothing ->
---           let newRepo = IntMap.insert (unUserId userId) newRoom repo
---            in pure (newRepo, Right userId)
---         Just _ -> pure (repo, Left userId) -- gameroom for current user is already active
+          pure (NewCreatedRoom userId)
+        Just _ -> pure (AlreadyActiveRoom userId) -- gameroom for current user is already active

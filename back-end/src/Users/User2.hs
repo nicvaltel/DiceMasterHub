@@ -1,30 +1,32 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Users.User2 where
 
 import Data.Text (Text)
-import Language.Haskell.TH
-import Control.Monad
-import Data.Typeable (typeOf, Typeable)
 
-newtype UserId (r :: RegStatus) = UserId { unUserId :: Int }
+newtype RegUId = RegUId Int
+  deriving (Show, Eq, Ord)
+
+newtype AnonUId = AnonUId Int
+  deriving (Show, Eq, Ord)
+
+data UserId = RegUserId RegUId | AnonUserId AnonUId
+  deriving (Show, Eq, Ord)
+
+data User = User {userId :: UserId, userName :: Username}
   deriving (Show)
 
 data RegStatus = Registered | Anonim
-  deriving (Show, Typeable)
+  deriving (Show)
 
+type Username = Text
 
-fff :: IO ()
-fff = do
-  putStrLn $ show $ typeOf registeredUserId --(undefined :: UserId 'Registered)
+type Password = Text
 
--- Example usage:
-registeredUserId :: UserId 'Registered
-registeredUserId = UserId 42
-
-anonimUserId :: UserId 'Anonim
-anonimUserId = UserId 123
+class UserRepo db where
+  findUserById :: db -> RegUId -> IO (Maybe User)
+  findUserByUsername :: db -> Username -> IO (Maybe User)
+  addUser :: db -> Username -> Password -> IO (Maybe RegUId) -- TODO save hashed password
+  updateUser :: db -> User -> IO Bool
+  deleteUser :: db -> RegUId -> IO Bool
+  checkPassword :: db -> RegUId -> Password -> IO Bool -- TODO save hashed password
