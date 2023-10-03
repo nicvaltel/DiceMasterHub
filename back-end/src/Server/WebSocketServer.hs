@@ -1,47 +1,97 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 -- websocat -v ws://127.0.0.1:1234
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-}
 
-module Server.WebSocketServer (runWebSocketServer) where
+module Server.WebSocketServer where
 
-import Control.Exception (finally)
+import Control.Exception (SomeException, catch, finally)
 import Control.Monad (forever)
 import qualified Data.Text as Text
 import GameRoom.GameRoom (GameRoomRepo (..))
-import GameRoom.GameRoomTMVarAdapter
 import qualified Network.WebSockets as WS
 import Server.Connection
-import Server.ConnectionTMVarAdapter
 import Server.MessageProcessor
 import Server.Messages
+import Users.User (UserId (..), UserRepo, RegStatus (..))
+import Utils.Utils (LgSeverity (..), logger)
 import Server.WebSocketServerClass
-import Unsafe.Coerce (unsafeCoerce)
-import Users.User (UserId (..), UserRepo)
-import Users.UserPostgresAdapter (UserRepoDB)
-import Utils.Utils (LgSeverity (LgError, LgInfo), logger)
 
-data WSSApp a = WSSApp {connRepo :: ConnectionRepoTMVar, gameRoomRepo :: GameRoomRepoTMVar, userRepo :: UserRepoDB}
+checkForExistingUser' :: WebSocketServer wss c g u => wss -> WS.Connection -> IO (UserId 'Anonim)
+checkForExistingUser' wss conn = do
+  uId <- nextAnonUserId (getConnRepo wss)
+  askForExistingUser conn
+  pure uId
 
-instance WebSocketServer (WSSApp a) ConnectionRepoTMVar GameRoomRepoTMVar UserRepoDB where
-  getConnRepo :: WSSApp a -> crepo
-  getConnRepo = unsafeCoerce . connRepo
+webSocketServer' :: WebSocketServer wss c g u => wss -> PingTime -> WS.ServerApp
+webSocketServer' wss pingTime = \pending -> do
+  conn <- WS.acceptRequest pending
+  userId <- checkForExistingUser wss conn
+  idConn <- addConn (getConnRepo wss) conn userId CSNormal
+  logger LgInfo $ show idConn ++ " connected"
 
-  getGameRoomRepo :: WSSApp a -> grrepo
-  getGameRoomRepo = unsafeCoerce . gameRoomRepo
+  -- for debug
+  connState <- lookupConnState (getConnRepo wss) idConn
+  logger LgDebug $ show connState
+  -- for debug
 
-  getUserRepo :: WSSApp a -> crepo
-  getUserRepo = unsafeCoerce . userRepo
+  WS.withPingThread conn pingTime (pure ()) $ do
+    catch
+      (wsThreadMessageListener wss conn idConn)
+      (\(e :: SomeException) -> (putStrLn $ "WebSocket thread error: " ++ show e) >> disconnect idConn)
+  where
+    -- finally
+    --   (wsThreadMessageListener wss conn idConn)
+    --   (disconnect idConn)
 
-runWebSocketServer :: String -> Int -> PingTime -> UserRepoDB -> IO ()
-runWebSocketServer host port pingTime userRepo = do
-  gameRoomRepo :: GameRoomRepoTMVar <- createGameRoomRepo
-  connRepo :: ConnectionRepoTMVar <- createConnsRepo
-  let wss = WSSApp {connRepo, gameRoomRepo, userRepo}
-  WS.runServer host port $ webSocketServer wss pingTime
+    disconnect idConn = do
+      removeConn (getConnRepo wss) idConn
+      logger LgInfo $ show idConn ++ " disconnected"
+
+wsThreadMessageListener' :: WebSocketServer wss c g u => wss -> WS.Connection -> ConnectionId -> IO ()
+wsThreadMessageListener' wss conn idConn =
+  forever $ do
+    (msg :: WSMsgFormat) <- WS.receiveData conn
+    logger LgInfo $ "RECIEVE #(" <> show idConn <> "): " <> Text.unpack msg
+
+    -- for debug
+    connState <- lookupConnState (getConnRepo wss) idConn
+    logger LgDebug $ show connState
+    -- for debug
+
+    connStatus <- getConnStatus connRepo idConn -- if connection status is not found, there will be CSConnectionNotFound
+    case connStatus of -- FSM switcher
+      CSNormal -> normalMessageProcessor msg
+      CSConnectionNotFound -> logger LgError $ "ConnectionId not found, but message recieved idConn = " ++ show idConn
+    pure ()
+  where
+    connRepo = getConnRepo wss
+    userRepo = getUserRepo wss
+
+    normalMessageProcessor :: WSMsgFormat -> IO ()
+    normalMessageProcessor msg = do
+      let wsMsg = toWebSocketInputMessage msg
+      logger LgInfo (show wsMsg)
+      case (toWebSocketInputMessage msg) of
+        LogInOutInMsg logMsg -> do
+          processMsgLogInOut wss conn idConn logMsg 
+          -- for debug
+          connState <- lookupConnState (getConnRepo wss) idConn
+          logger LgDebug $ show connState
+          -- for debug
+        InitJoinRoomInMsg ijrMsg -> do
+          mbUserId <- userIdFromConnectionId connRepo idConn
+          case mbUserId of
+            Nothing -> undefined
+            Just userId -> processInitJoinRoom userId ijrMsg
+        GameActionInMsg gameActMsg -> processGameActionMsg gameActMsg
+        AnswerExistingUserInMsg uId -> processUpdateExistingUser wss idConn uId
+        IncorrectInMsg txt -> processIncorrectMsg conn txt
+

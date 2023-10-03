@@ -40,7 +40,7 @@ findUserById' poolConn userId@(UserId uId) = do
     [Only userName] -> pure $ Just User {userId, userName}
     _ -> pure Nothing
   where
-    queryStr = "SELECT username FROM dice_master_hub.users where id = ?"
+    queryStr = "SELECT username FROM dice_master_hub.users WHERE id = ?"
 
 findUserByUsername' :: Pool Connection -> Username -> IO (Maybe (User 'Registered))
 findUserByUsername' poolConn userName = do
@@ -49,7 +49,7 @@ findUserByUsername' poolConn userName = do
     [Only uId] -> pure $ Just User {userId = UserId uId, userName}
     _ -> pure Nothing
   where
-    queryStr = "SELECT id FROM dice_master_hub.users where username = ?"
+    queryStr = "SELECT id FROM dice_master_hub.users WHERE username = ?"
 
 addUser' :: Pool Connection -> Username -> Password -> IO (Maybe (UserId 'Registered))
 addUser' poolConn userName passwd = do
@@ -58,16 +58,16 @@ addUser' poolConn userName passwd = do
     [Only uId] -> pure $ Just (UserId uId)
     _ -> pure Nothing
   where
-    queryStr = "INSERT INTO dice_master_hub.users (username, passwd, created) VALUES(?, ?, (now() AT TIME ZONE 'utc'::text)) returning id;"
+    queryStr = "INSERT INTO dice_master_hub.users (username, passwd, created) VALUES(?, crypt(?, gen_salt('bf')), (now() AT TIME ZONE 'utc'::text)) returning id;"
 
 checkPassword' :: Pool Connection -> (UserId 'Registered) -> Password -> IO Bool
 checkPassword' poolConn (UserId uId) passwd = do
-  res :: [Only Text] <- PG.withDBConn poolConn $ \conn -> query conn queryStr (Only uId)
+  res :: [Only Int] <- PG.withDBConn poolConn $ \conn -> query conn queryStr (uId, passwd)
   case res of
-    [Only pwd] -> pure $ passwd == pwd
+    [Only uId] -> pure True
     _ -> pure False
   where
-    queryStr = "SELECT username FROM dice_master_hub.users where id = ?"
+    queryStr = "SELECT id FROM dice_master_hub.users WHERE id = ? and passwd = crypt(?, passwd)"
 
 deleteUser' :: Pool Connection -> (UserId 'Registered) -> IO Bool
 deleteUser' = undefined

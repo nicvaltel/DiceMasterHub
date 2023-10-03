@@ -39,8 +39,8 @@ instance ConnectionsRepo ConnectionRepoTMVar where
     putTMVar tmvRepo newWssState
     pure idConn
 
-  updateUser :: ToAnyUserId r => ConnectionRepoTMVar -> ConnectionId -> UserId r -> IO ()
-  updateUser (ConnectionRepoTMVar tmvRepo) connId userId = atomically $ do
+  updateUserId :: ToAnyUserId r => ConnectionRepoTMVar -> ConnectionId -> UserId r -> IO ()
+  updateUserId (ConnectionRepoTMVar tmvRepo) connId userId = atomically $ do
     repo <- takeTMVar tmvRepo
     let newRepo = updateUserInConnState repo connId userId
     putTMVar tmvRepo newRepo

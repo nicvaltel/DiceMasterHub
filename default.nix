@@ -14,29 +14,60 @@ in
   pkgs.stdenv.mkDerivation {
     name = "env";
     buildInputs =  [
+      pkgs.emacs
+      pkgs.vscode
+      pkgs.tree # show files in directory as tree
+      pkgs.mc
+      pkgs.postgresql
+      pkgs.dbeaver
+      pkgs.glibc
+      pkgs.docker
+      pkgs.docker-compose
+      pkgs.websocat # Websocat is a command-line utility that can help you test WebSocket connections
+
       compiler.stack
       compiler.cabal-install
       compiler.ghcid
       compiler.haskell-language-server
       compiler.ghcide
+
       pkgs.ormolu
       pkgs.hpack
       compiler.ghc
       pkgs.haskellPackages.record-dot-preprocessor
       pkgs.zlib
+      pkgs.pcre # A library for Perl Compatible Regular Expressions
 
       pkgs.go
       pkgs.gopls # Official language server for the Go language
       
-      pkgs.websocat # Websocat is a command-line utility that can help you test WebSocket connections
-      pkgs.docker-compose
-
-      pkgs.pcre
-      pkgs.postgresql
-      pkgs.glibc
-      # pkgs.haskellPackages.postgresql-simple-migration
+      # # pkgs.haskellPackages.postgresql-simple-migration
 
     ];
+
+
+#     virtualisation.docker.enable = true;
+#     users.users.kolay = {
+#       isNormalUser = true;
+#       home = "/home/kolay";
+#       extraGroups = [ "wheel" "networkmanager" "vboxusers" "docker" "audio"]; # "wheel" Enable ‘sudo’ for the user.
+#     };
+
+     shellHook = ''
+         echo "Entering my Nix shell environment..."
+         cd DB
+         konsole -e 'docker-compose up' &
+         cd ..
+         konsole &
+         konsole &
+         dbeaver &
+         code . &
+
+         #!/usr/bin/env ./run_code.sh
+         # You can add any additional setup or configuration here
+         # For example, you can run your start.sh script:
+         # $myEnv/bin/bash $start.sh
+     '';
 
 }
 

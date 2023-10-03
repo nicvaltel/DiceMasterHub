@@ -31,7 +31,7 @@ instance Show ConnectionState where
 class ConnectionsRepo db where
   createConnsRepo :: IO (db)
   addConn :: ToAnyUserId r => db -> WS.Connection -> UserId r -> ConnectionStatus -> IO ConnectionId
-  updateUser :: ToAnyUserId r => db -> ConnectionId -> UserId r -> IO ()
+  updateUserId :: ToAnyUserId r => db -> ConnectionId -> UserId r -> IO ()
   removeConn :: db -> ConnectionId -> IO ()
   lookupConnState :: db -> ConnectionId -> IO (Maybe ConnectionState)
   userIdFromConnectionId :: db -> ConnectionId -> IO (Maybe (UserId r))

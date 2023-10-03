@@ -6,7 +6,7 @@ module RunApp where
 import Configuration.Dotenv (parseFile)
 import Data.Maybe (fromJust)
 import qualified PostgreSQLConnector as PG
-import qualified Server.WebSocketServer as WSS
+import qualified Server.WebSocketServerImpl as WSS
 import Text.Printf (printf)
 import Users.UserPostgresAdapter (UserRepoDB(UserRepoDB))
 import Control.Exception (SomeException, catch)

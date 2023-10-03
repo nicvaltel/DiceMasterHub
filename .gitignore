@@ -9,7 +9,15 @@ back-end/out/
 back-end/src/Pentest/
 back-end/run_deploy.sh
 
+
+
 gowebsocket/
+
+front-end/gomoku/go-assets/
+front-end/gomoku/node_modules/
+front-end/gomoku/.eslintrc.js
+front-end/gomoku/package.json
+front-end/gomoku/package-lock.json
 
 front-end/assets/run_deploy.sh
 *.env
